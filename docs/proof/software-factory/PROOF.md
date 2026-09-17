@@ -104,6 +104,7 @@ Orkestratör (oturum modeli: Fable 5.1) yazar alt-ajanlarının raporlarına gü
 - Proje `.claude/settings.json` izin kuralları, dosya `main`'e birleşip oturum yeniden başlayana kadar etkin değildir.
 - Görsel kanıt bu görevde uygulanamaz (UI yok); `capture-screen.ps1` yalnız çalıştığı kanıtlandı.
 - Bootstrap iskelet commit'i (94465a9) main'e doğrudan atıldı: fabrika henüz yokken zorunlu tek istisna.
+- GitHub'da `main` için branch protection (PR zorunlu) henüz açılmadı; Bash izin kuralları güvenlik sınırı değildir, mekanik sigorta olarak branch protection önerilir (kullanıcı kararı).
 
 ## Yeniden üretme
 1. `git clone` + `git switch software-factory`.
@@ -115,6 +116,11 @@ Orkestratör (oturum modeli: Fable 5.1) yazar alt-ajanlarının raporlarına gü
 ## Tur 2
 
 İnceleme: `REVIEW-1.md` — SKOR 4 / DUZELTME_GEREKLI (ENGELLEYİCİ 0, ÖNEMLİ 2, KÜÇÜK 9). Yazar: sonnet (tek alt-ajan).
+Aralık: `735d54c..bbed215` (head `bbed215`).
+
+### İddia
+- [x] REVIEW-1'in 2 ÖNEMLİ ve 9 KÜÇÜK bulgusu kapatıldı (tablo aşağıda).
+- [x] Ölçümler bütçe içinde ve dosyalarla uyumlu (Test / Ölçüm).
 
 ### Bulgu → Düzeltme
 | Bulgu | Dosya | Yapılan |
@@ -147,7 +153,47 @@ Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştır
   - `Get-Content -Raw .claude/settings.json | ConvertFrom-Json` → `JSON OK`.
   - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` → katı YAML ayrıştırıcısı 4/4 geçti.
   - `capture-screen.ps1 -Out capture-verify-tur2.png` (bağımsız çalıştırma, mutlak yol) → `Kaydedildi: …\capture-verify-tur2.png`, 211473 bayt.
-- `git diff --stat` kapsam kontrolü: 10 dosya, 97 ekleme, 31 silme — yalnız REVIEW-1.md'de adı geçen dosyalar + bu PROOF.md; kapsam dışı dosya yok. Her değişiklik okunarak doğrulandı: new-feature (a)–(e) harflendirme, madde (a) slug karşılaştırması, Çıkış Kapısı "slug'a EŞİT" şartı, Yasaklar tablosu 3 satır; settings.json deny +8 / ask +6 kural, `git stash *` ask'ta; capture-screen.ps1 mutlak yol + try/finally; reviewer-prompt.md satır 17; prove-it "Kalıcılaştır" commit kuralları; ship-it Push satırı ve `<dal-slug>`; AGENTS.md madde 2 `<dal-slug>`; builder-prompt.md DAL_SLUG notu.
+- `git diff --stat 2add074..bbed215`: 10 dosya, 103 ekleme, 31 silme (orkestratör satırları eklendikten sonra yeniden ölçüldü) — yalnız REVIEW-1.md'de adı geçen dosyalar + bu PROOF.md; kapsam dışı dosya yok. Her değişiklik okunarak doğrulandı: new-feature (a)–(e) harflendirme, madde (a) slug karşılaştırması, Çıkış Kapısı "slug'a EŞİT" şartı, Yasaklar tablosu 3 satır; settings.json deny +8 / ask +6 kural, `git stash *` ask'ta; capture-screen.ps1 mutlak yol + try/finally; reviewer-prompt.md satır 17; prove-it "Kalıcılaştır" commit kuralları; ship-it Push satırı ve `<dal-slug>`; AGENTS.md madde 2 `<dal-slug>`; builder-prompt.md DAL_SLUG notu.
 - Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
+
+## Tur 3
+
+İnceleme: `REVIEW-2.md` — SKOR 4 / DUZELTME_GEREKLI (ENGELLEYİCİ 0, ÖNEMLİ 2, KÜÇÜK 6). Yazar: sonnet (tek alt-ajan). Döngü sınırındaki son tur.
+Aralık: `bbed215..{HEAD}` (orkestratör doldurur).
+
+### İddia
+- [ ] Başka bir görevin worktree'sinden yeni görev başlatıldığında yeni worktree depo kökündeki `.claude/worktrees/<slug>` altında açılır, iç içe DEĞİL (GREEN-4).
+- [ ] REVIEW-2'nin 2 ÖNEMLİ ve 6 KÜÇÜK bulgusu kapatıldı.
+
+### Bulgu → Düzeltme
+| Bulgu | Dosya | Yapılan |
+|---|---|---|
+| ÖNEMLİ-1: (a)/(c)'deki göreli `git worktree add` yolu, başka worktree içinden çalıştırıldığında iç içe worktree açıyordu | `.claude/skills/new-feature/SKILL.md` (madde a, c, Çıkış Kapısı) | (c)'ye depo kökü tespiti eklendi (`git rev-parse --path-format=absolute --git-common-dir`); (a) ve (c)'deki komutlar `<kök>/.claude/worktrees/<slug>` mutlak yoluna bağlandı; Çıkış Kapısı dal adı = slug türetimini `EnterWorktree` sonrası `git branch --show-current` ile netleştirdi. |
+| ÖNEMLİ-2: Tur 2 kanıtı yalnız statik ölçüm; yeni "başka görevin worktree'si" dalı için GREEN senaryosu koşulmamıştı | `docs/proof/software-factory/PROOF.md` (bu bölüm) | GREEN-4 senaryosu orkestratör tarafından koşuldu; sonuç aşağıda. |
+| KÜÇÜK: deny/ask kalıpları `+refspec` ve `HEAD:main --no-verify` gibi biçimleri kaçırıyordu | `.claude/settings.json` (ask) | `Bash(git push *+*)`, `Bash(git push *main *)` (+PowerShell) ask'a eklendi. |
+| KÜÇÜK: "(ya da aynı PR'ın inceleme turuysa)" gözlemlenebilir bir yüklem değildi | `.claude/skills/new-feature/SKILL.md` (madde a) | Parantez kaldırıldı; yerine "İnceleme turunda görev slug'ı, açık PR'ın dal adıdır (`gh pr view --json headRefName`)." cümlesi eklendi. |
+| KÜÇÜK: Çıkış Kapısı "slug'a EŞİT" diyordu ama slug türetimi (dal adı → slug) belirtilmemişti | `.claude/skills/new-feature/SKILL.md` (Çıkış Kapısı) | "dal adı (`/`→`-` uygulanmış) = görev slug'ı" olarak netleştirildi; (c)'de `EnterWorktree` sonrası dal adından slug türetme notu eklendi. |
+| KÜÇÜK: AGENTS.md Adım 1 çıkış koşulu new-feature ile tutarsızdı | `AGENTS.md` (Montaj Hattı tablosu, Adım 1) | "cwd izole worktree, dal ≠ main" → "cwd `<kök>/.claude/worktrees/<slug>`, dal = görev slug'ı (≠ main)". |
+| KÜÇÜK: PROOF.md Tur 2 aralığı ve İddia listesi eksikti; `git diff --stat` sonradan eklenen satırları saymıyordu | `docs/proof/software-factory/PROOF.md` (## Tur 2) | "Aralık: 735d54c..bbed215" satırı, İddia onay kutuları eklendi; `git diff --stat 2add074..bbed215` = 10 dosya, 103 ekleme, 31 silme olarak yeniden ölçüldü. |
+| KÜÇÜK: reviewer-prompt `git -C` yedeği izin isteyeceğini belirtmiyordu | `.claude/skills/ship-it/reviewer-prompt.md:17` | "(izin sorar; yalnız zorunluysa)" eklendi. |
+
+### GREEN-4 — new-feature, başka görevin worktree'sinden (ÖNEMLİ-2)
+RED (Tur 2 inceleyicisinin tespiti): göreli `git worktree add ".claude/worktrees/<slug>"` başka bir worktree içinden çalıştırılınca `<worktree-A>/.claude/worktrees/<slug>` oluşur (iç içe).
+Senaryo: klon içinde `.claude/worktrees/hello-script` worktree'si var; Sonnet alt-ajanı o worktree'de; yeni görev slug `bye-script`; "AGENTS.md ve CLAUDE.md'yi oku ve uygula".
+Geçme ölçütü: `git worktree list` → `<kök>/.claude/worktrees/bye-script [bye-script]` (iç içe DEĞİL); `hello-script` dalı değişmedi; commit `bye-script`'te.
+Sonuç: {orkestratör dolduracak: komutlar, `git worktree list` çıktısı, gerekçe alıntısı, PASS/FAIL}
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `wc -w` AGENTS.md + 4 SKILL.md | ≤400 / ≤500 | 393 / 464 / 390 / 379 / 484 | 0 | PASS |
+| YAML frontmatter parse (4 dosya) | 4/4 OK | `new-feature 377`, `code-structure 392`, `prove-it 354`, `ship-it 383` (name + description karakter uzunluğu) | 0 | PASS |
+| `ConvertFrom-Json settings.json` | JSON OK | `JSON OK` | 0 | PASS |
+| GREEN-4 | kök altında worktree | {orkestratör dolduracak} | — | … |
+
+### Orkestratör doğrulaması
+- Test komutu tekrar çalıştırıldı: {komut} → {sonuç}
+- `git diff --stat` kapsam kontrolü: {sonuç}
+- Görseller açıldı / eşleşti: {evet / hayır / uygulanamaz}
 
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->

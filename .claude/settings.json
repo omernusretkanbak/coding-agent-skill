@@ -30,7 +30,9 @@
       "Bash(git push *main)", "PowerShell(git push *main)",
       "Bash(git -C *)", "PowerShell(git -C *)",
       "Bash(git -c *)", "PowerShell(git -c *)",
-      "Bash(git stash *)", "PowerShell(git stash *)"
+      "Bash(git stash *)", "PowerShell(git stash *)",
+      "Bash(git push *+*)", "PowerShell(git push *+*)",
+      "Bash(git push *main *)", "PowerShell(git push *main *)"
     ],
     "deny": [
       "Bash(gh pr merge *)", "PowerShell(gh pr merge *)",
