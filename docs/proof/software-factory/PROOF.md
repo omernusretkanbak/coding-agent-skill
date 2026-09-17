@@ -159,11 +159,11 @@ Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştır
 ## Tur 3
 
 İnceleme: `REVIEW-2.md` — SKOR 4 / DUZELTME_GEREKLI (ENGELLEYİCİ 0, ÖNEMLİ 2, KÜÇÜK 6). Yazar: sonnet (tek alt-ajan). Döngü sınırındaki son tur.
-Aralık: `bbed215..{HEAD}` (orkestratör doldurur).
+Aralık: `bbed215..2229914` (düzeltmeler + REVIEW-2.md); GREEN-4 sonucu ve orkestratör doğrulaması bir sonraki commit'te (yalnız bu PROOF.md).
 
 ### İddia
-- [ ] Başka bir görevin worktree'sinden yeni görev başlatıldığında yeni worktree depo kökündeki `.claude/worktrees/<slug>` altında açılır, iç içe DEĞİL (GREEN-4).
-- [ ] REVIEW-2'nin 2 ÖNEMLİ ve 6 KÜÇÜK bulgusu kapatıldı.
+- [x] Başka bir görevin worktree'sinden yeni görev başlatıldığında yeni worktree depo kökündeki `.claude/worktrees/<slug>` altında açılır, iç içe DEĞİL (GREEN-4, aşağıda; orkestratör `git worktree list` ile doğruladı).
+- [x] REVIEW-2'nin 2 ÖNEMLİ ve 6 KÜÇÜK bulgusu kapatıldı (tablo aşağıda; Orkestratör doğrulaması).
 
 ### Bulgu → Düzeltme
 | Bulgu | Dosya | Yapılan |
@@ -181,7 +181,19 @@ Aralık: `bbed215..{HEAD}` (orkestratör doldurur).
 RED (Tur 2 inceleyicisinin tespiti): göreli `git worktree add ".claude/worktrees/<slug>"` başka bir worktree içinden çalıştırılınca `<worktree-A>/.claude/worktrees/<slug>` oluşur (iç içe).
 Senaryo: klon içinde `.claude/worktrees/hello-script` worktree'si var; Sonnet alt-ajanı o worktree'de; yeni görev slug `bye-script`; "AGENTS.md ve CLAUDE.md'yi oku ve uygula".
 Geçme ölçütü: `git worktree list` → `<kök>/.claude/worktrees/bye-script [bye-script]` (iç içe DEĞİL); `hello-script` dalı değişmedi; commit `bye-script`'te.
-Sonuç: {orkestratör dolduracak: komutlar, `git worktree list` çıktısı, gerekçe alıntısı, PASS/FAIL}
+Kurulum (orkestratör, `green4-setup.sh`): `software-factory` dalı (`2229914`, Tur 3 skill'leri) scratch bare depoya itildi, `main` ona eşitlendi; `green4` klonlandı; görev A için `git -C green4 worktree add ".claude/worktrees/hello-script" -b hello-script origin/main` + `scripts/hello.ps1` commit'i (`c4e6422`).
+Özne: `Agent(model: sonnet)`; cwd = `<green4>/.claude/worktrees/hello-script` (tüm komutlar `git -C` ile o dizinden); mesaj: "Yeni görev, slug `bye-script`: scripts/bye.ps1 ekle … Commit'le ve push'la."
+Öznenin okuduğu dosyalar: AGENTS.md, CLAUDE.md, dört SKILL.md, builder-prompt.md, PROOF-template.md, reviewer-prompt.md.
+Öznenin komutları (özet): `branch --show-current` → `hello-script`; `rev-parse --git-dir` ≠ `--git-common-dir` → worktree'de; `rev-parse --path-format=absolute --git-common-dir` → `<green4>/.git` → kök `<green4>`; `status --porcelain` boş; `check-ignore -v .claude/worktrees/` → eşleşti; **`git -C "<green4>" worktree add "<green4>/.claude/worktrees/bye-script" -b bye-script origin/main`** (mutlak yol); bye.ps1 yazıldı, iki senaryoda çalıştırıldı, `docs/proof/bye-script/PROOF.md` üretildi; commit `1b36c56`; `push -u origin bye-script`.
+Öznenin `git worktree list` çıktısı:
+```
+<green4>                                2229914 [main]
+<green4>/.claude/worktrees/bye-script   1b36c56 [bye-script]
+<green4>/.claude/worktrees/hello-script c4e6422 [hello-script]
+```
+Gerekçe (alıntı): "`new-feature` skill'inin (a) adımı tam olarak bunu söylüyor: 'Dal adı bu görevin slug'ıyla aynıysa Adım 2'ye geç... Farklıysa bu başka bir görevin worktree'sidir: madde (c) ile kök altında YENİ worktree aç (asla göreli yol; aksi hâlde iç içe worktree oluşur).' … önce depo kökünü `git rev-parse --path-format=absolute --git-common-dir`'in üst dizini olarak buldum … kökten **mutlak yol** vererek `git worktree add` çalıştırdım — `origin/main`'den dallandırdım, `hello-script`'ten değil."
+Ek gözlem: özne, AGENTS.md kural 2 gereği kendi `docs/proof/bye-script/PROOF.md` dosyasını üretti ve bu sırada gerçek bir hata yakaladı (Windows PowerShell 5.1, BOM'suz UTF-8 betikte Türkçe karakterleri bozuyor → BOM eklenerek düzeltildi, çıktı "Hoşça kal, Fabrika!" doğrulandı).
+Sonuç: **PASS** — worktree kök altında (`<green4>/.claude/worktrees/bye-script`), iç içe DEĞİL; `hello-script` dalı `c4e6422`'de değişmedi; commit `1b36c56` yalnız `bye-script` dalında; iki dal `2229914`'ten bağımsız dallanmış.
 
 ### Test / Ölçüm
 | Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
@@ -189,11 +201,17 @@ Sonuç: {orkestratör dolduracak: komutlar, `git worktree list` çıktısı, ger
 | `wc -w` AGENTS.md + 4 SKILL.md | ≤400 / ≤500 | 393 / 464 / 390 / 379 / 484 | 0 | PASS |
 | YAML frontmatter parse (4 dosya) | 4/4 OK | `new-feature 377`, `code-structure 392`, `prove-it 354`, `ship-it 383` (name + description karakter uzunluğu) | 0 | PASS |
 | `ConvertFrom-Json settings.json` | JSON OK | `JSON OK` | 0 | PASS |
-| GREEN-4 | kök altında worktree | {orkestratör dolduracak} | — | … |
+| GREEN-4 (`git -C green4 worktree list`) | `<kök>/.claude/worktrees/bye-script [bye-script]`, iç içe değil; `hello-script` değişmez | `<green4>/.claude/worktrees/bye-script 1b36c56 [bye-script]`; `hello-script c4e6422`; görev A worktree'sinin `.claude/` dizininde yalnız `settings.json`, `skills/` (iç içe `worktrees/` YOK) | 0 | PASS |
 
 ### Orkestratör doğrulaması
-- Test komutu tekrar çalıştırıldı: {komut} → {sonuç}
-- `git diff --stat` kapsam kontrolü: {sonuç}
-- Görseller açıldı / eşleşti: {evet / hayır / uygulanamaz}
+Orkestratör (Fable 5.1, oturum) yazar ve özne raporlarına güvenmeden kendisi çalıştırdı:
+
+- Test komutu tekrar çalıştırıldı:
+  - `wc -w` (5 dosya) → 393 / 464 / 390 / 379 / 484 (yazarın ölçümüyle aynı; bütçeler içinde).
+  - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` → 4/4.
+  - `Get-Content -Raw .claude/settings.json | ConvertFrom-Json` → `JSON OK`.
+  - GREEN-4 bağımsız doğrulama: `git -C green4 worktree list` → üç satır, `bye-script` kök altında (`<green4>/.claude/worktrees/bye-script 1b36c56`); `git -C green4 log --oneline -2 hello-script` → `c4e6422`, `2229914` (değişmedi); `git -C green4 log --oneline --stat -1 bye-script` → `1b36c56`: `docs/proof/bye-script/PROOF.md` (+65), `scripts/bye.ps1` (+2); `ls -A <green4>/.claude/worktrees/hello-script/.claude` → `settings.json`, `skills/` (iç içe `worktrees/` yok).
+- `git diff --stat bbed215..2229914` kapsam kontrolü: 6 dosya, 99 ekleme, 7 silme — `.claude/settings.json`, `new-feature/SKILL.md`, `reviewer-prompt.md`, `AGENTS.md`, `PROOF.md`, `REVIEW-2.md`; yalnız REVIEW-2'de adı geçen dosyalar + kanıt kayıtları; kapsam dışı dosya yok. new-feature (a)/(c) ve Çıkış Kapısı metni okunarak doğrulandı (kök tespiti, mutlak yol, `gh pr view --json headRefName` yüklemi, slug türetimi); AGENTS.md Adım 1 çıkış koşulu; settings.json ask +4; reviewer-prompt izin notu.
+- Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
 
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->
