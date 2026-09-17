@@ -10,7 +10,6 @@
       "Bash(git worktree *)", "PowerShell(git worktree *)",
       "Bash(git switch *)", "PowerShell(git switch *)",
       "Bash(git fetch *)", "PowerShell(git fetch *)",
-      "Bash(git stash *)", "PowerShell(git stash *)",
       "Bash(git add *)", "PowerShell(git add *)",
       "Bash(git commit *)", "PowerShell(git commit *)",
       "Bash(git push *)", "PowerShell(git push *)",
@@ -27,7 +26,11 @@
       "Bash(git merge *)", "PowerShell(git merge *)",
       "Bash(git push * main)", "PowerShell(git push * main)",
       "Bash(git push *:main)", "PowerShell(git push *:main)",
-      "Bash(git push origin main)", "PowerShell(git push origin main)"
+      "Bash(git push origin main)", "PowerShell(git push origin main)",
+      "Bash(git push *main)", "PowerShell(git push *main)",
+      "Bash(git -C *)", "PowerShell(git -C *)",
+      "Bash(git -c *)", "PowerShell(git -c *)",
+      "Bash(git stash *)", "PowerShell(git stash *)"
     ],
     "deny": [
       "Bash(gh pr merge *)", "PowerShell(gh pr merge *)",
@@ -35,6 +38,10 @@
       "Bash(git push -f *)", "PowerShell(git push -f *)",
       "Bash(git push * --force*)", "PowerShell(git push * --force*)",
       "Bash(git push * -f *)", "PowerShell(git push * -f *)",
+      "Bash(git push * -f)", "PowerShell(git push * -f)",
+      "Bash(git push * --force)", "PowerShell(git push * --force)",
+      "Bash(git push -f)", "PowerShell(git push -f)",
+      "Bash(git push --force)", "PowerShell(git push --force)",
       "Bash(git branch -D *)", "PowerShell(git branch -D *)",
       "Bash(git worktree remove --force *)", "PowerShell(git worktree remove --force *)"
     ]

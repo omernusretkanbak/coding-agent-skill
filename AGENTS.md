@@ -5,7 +5,7 @@ Bu repoda her değişiklik dört istasyondan geçer. Bu dosya yalnız iş akış
 ## Değişmez Kurallar
 
 1. `main` üzerine doğrudan yazılmaz; her görev kendi worktree'sinde ve dalında yapılır.
-2. Kanıtsız "bitti" yoktur; kanıt `docs/proof/<dal>/PROOF.md` altında yaşar ve kullanıcıya gösterilir.
+2. Kanıtsız "bitti" yoktur; kanıt `docs/proof/<dal-slug>/PROOF.md` altında yaşar ve kullanıcıya gösterilir.
 3. Kodu her zaman ucuz model (Sonnet) yazar; incelemeyi her zaman en akıllı model (Fable) yapar ve 0–5 puanlar. Orkestratör ne kod yazar ne inceler.
 4. Merge asla ajan tarafından yapılmaz. 5 puanda bile PR bağlantısı sunulur ve durulur; birleştirme kararı kullanıcınındır.
 5. Bu dosya teknoloji yığını veya klasör yapısı anlatmaz; ajan mimariyi kodu okuyarak öğrenir (Adım 2). Bu maddeyi genişleten değişiklikler reddedilir.

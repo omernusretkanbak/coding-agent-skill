@@ -14,7 +14,7 @@ Sen bağımsız bir Kıdemli Kod İnceleyicisin (model: {REVIEWER_MODEL}). Kodu 
 
 PR #{PR_NUMBER} — base `{BASE_SHA}` → head `{HEAD_SHA}`; worktree `{WORKTREE_ABS}`.
 
-Her shell komutunu `cd "{WORKTREE_ABS}"; …` ile başlat (cwd kalıcı değildir). Diff için `gh pr diff {PR_NUMBER}` ya da `git diff {BASE_SHA}..{HEAD_SHA}` kullan.
+cwd zaten worktree'dir; git komutlarını tek başına, düz biçimde çalıştır (bileşik komutlar izolasyon kilidine takılabilir). Başka dizin gerekiyorsa `git -C "{WORKTREE_ABS}" …`. Diff için `gh pr diff {PR_NUMBER}` ya da `git diff {BASE_SHA}..{HEAD_SHA}` kullan.
 
 ## Kanıt dosyası
 

@@ -1,6 +1,12 @@
 ---
 name: code-structure
-description: Use when about to write or modify code in any codebase — new file, new module, refactor, "where should this go?" — or when dispatching an implementer subagent for a task; before producing code without first reading how the project is organized. Keywords: build, implement, architecture, layering, page service repository, clean code, conventions, learn codebase, implementer subagent, sonnet.
+description: >-
+  Use when about to write or modify code in any codebase — new file, new
+  module, refactor, "where should this go?" — or when dispatching an
+  implementer subagent for a task; before producing code without first
+  reading how the project is organized. Keywords: build, implement,
+  architecture, layering, page service repository, clean code, conventions,
+  learn codebase, implementer subagent, sonnet.
 ---
 
 # İNŞA ET — code-structure

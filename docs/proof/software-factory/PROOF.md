@@ -2,7 +2,7 @@
 
 | Görev | Tür | Aralık | Tur | Yazar modeli |
 |---|---|---|---|---|
-| Yazılım Fabrikası montaj hattı: AGENTS.md + CLAUDE.md + .claude/settings.json + 4 skill + docs/proof/README.md | mantık | 94465a9..03ea962 | 1 | sonnet (3 paralel yazar alt-ajanı: (a) AGENTS/CLAUDE/settings/README, (b) new-feature + code-structure, (c) prove-it + ship-it) |
+| Yazılım Fabrikası montaj hattı: AGENTS.md + CLAUDE.md + .claude/settings.json + 4 skill + docs/proof/README.md | mantık | 94465a9..735d54c (735d54c: yalnız PROOF.md) | 1 | sonnet (3 paralel yazar alt-ajanı: (a) AGENTS/CLAUDE/settings/README, (b) new-feature + code-structure, (c) prove-it + ship-it) |
 
 ## İddia
 - [x] AGENTS.md yalnız iş akışı kurallarını içerir, teknoloji yığını/klasör yapısı anlatmaz; ≤400 kelime. (Test/Ölçüm satır 1; Orkestratör doğrulaması)
@@ -111,5 +111,43 @@ Orkestratör (oturum modeli: Fable 5.1) yazar alt-ajanlarının raporlarına gü
 3. `git check-ignore -v .claude/worktrees/ .worktrees/`
 4. RED/GREEN için: temiz bir klonda Sonnet alt-ajanına aynı üç baskı mesajını ver — skill'siz `main` ile, skill'li bu dalla.
 5. `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/prove-it/scripts/capture-screen.ps1 -Out test.png`
+
+## Tur 2
+
+İnceleme: `REVIEW-1.md` — SKOR 4 / DUZELTME_GEREKLI (ENGELLEYİCİ 0, ÖNEMLİ 2, KÜÇÜK 9). Yazar: sonnet (tek alt-ajan).
+
+### Bulgu → Düzeltme
+| Bulgu | Dosya | Yapılan |
+|---|---|---|
+| ÖNEMLİ-1: Tespit adımı herhangi bir worktree'yi yeterli sayıyor | `.claude/skills/new-feature/SKILL.md` (madde a, Çıkış Kapısı) | Tespit adımına slug karşılaştırması eklendi: dal adı görev slug'ına eşit değilse `git worktree add` + `EnterWorktree path=` ile YENİ worktree açılır; Çıkış Kapısı "main DEĞİL, bu görevin slug'ına EŞİT" şartına genişletildi. |
+| ÖNEMLİ-2: deny/ask kalıpları `-f`/`--force` sonek biçimlerini ve `refs/heads/main` yollarını kaçırıyor | `.claude/settings.json` (deny, ask) | deny'a sonsuz `Bash(git push * -f)`, `* --force`, bare `-f`, bare `--force` (+PowerShell); ask'a boşluksuz `Bash(git push *main)`, `git -C *`, `git -c *` (+PowerShell) eklendi. |
+| KÜÇÜK: description'lar düz YAML skalasında `Keywords:` ile PyYAML'de bozuluyor | `.claude/skills/{new-feature,code-structure,prove-it,ship-it}/SKILL.md` (frontmatter) | `description:` katlanmış blok skalaya (`>-`) çevrildi; dört dosya da `yaml.safe_load` ile doğrulandı. |
+| KÜÇÜK: reviewer-prompt cwd talimatı zaten sabit cwd'yi gereksiz `cd` ile değiştiriyor | `.claude/skills/ship-it/reviewer-prompt.md:17` | Cümle "cwd zaten worktree'dir; git komutlarını tek başına, düz biçimde çalıştır … `git -C "{WORKTREE_ABS}" …`" olarak değiştirildi. |
+| KÜÇÜK: `git stash *` allow'da, plan ve new-feature metniyle çelişiyor | `.claude/settings.json` (allow → ask) | `git stash *` (Bash+PowerShell) allow'dan kaldırılıp ask'a taşındı. |
+| KÜÇÜK: üç ayrı numaralandırma (Adım 2 / Adım 0-1 / Adım 3) karışıyor | `.claude/skills/new-feature/SKILL.md` (madde a-e, REQUIRED SUB-SKILL, Kırmızı Bayraklar) | İç adımlar (a)-(e) olarak harflendirildi; hat adımı atfı "Hat Adımı 2" biçimine, REQUIRED SUB-SKILL satırı "o skill'in Step 0/1" biçimine, Kırmızı Bayraklar "madde (c)" biçimine çevrildi. |
+| KÜÇÜK: dört farklı yer tutucu (`<dal>`, `<slug>`, `{DAL_SLUG}`) aynı dizini adlandırıyor | `AGENTS.md:8`, `.claude/skills/ship-it/SKILL.md` (madde 5), `.claude/skills/code-structure/builder-prompt.md:2` | `<dal>`/`<slug>` → `<dal-slug>` olarak birleştirildi; `builder-prompt.md` üst yorumuna "DAL_SLUG = dal adı, `/` → `-`" notu eklendi (`{DAL_SLUG}` doldurma yer tutucusu olarak kaldı). |
+| KÜÇÜK: Yasaklar tablosunda superpowers "Common Rationalizations" kopyası üç satır | `.claude/skills/new-feature/SKILL.md` (Yasaklar tablosu) | "Zaten branch'teyim sanırım.", "`git worktree add` daha hızlı…", "Worktree dizini zaten ignore'dur." satırları silindi; RED'den gelen iki alıntı + "Tek satırlık değişiklik." kaldı. |
+| KÜÇÜK: `capture-screen.ps1` göreli yolu cwd'ye göre çözüyor, Dispose garanti değil | `.claude/skills/prove-it/scripts/capture-screen.ps1` | `$Out` başta `GetUnresolvedProviderPathFromPSPath` ile mutlaklaştırıldı; Bitmap/Graphics/Save `try/finally` içine alındı; başa "Yalnız birincil ekranı yakalar." notu eklendi. |
+| KÜÇÜK: commit kuralları (HEREDOC, Co-Authored-By, `--amend/--no-verify` yasağı) prove-it'te tek kelimeyle geçiyor, yasak ise ship-it'in commit'in olmadığı satırında | `.claude/skills/prove-it/SKILL.md` (Kalıcılaştır), `.claude/skills/ship-it/SKILL.md` (Push) | prove-it "Kalıcılaştır"a "Orkestratör commit'ler: mesajı dosyadan (`-F`) verir, `Co-Authored-By` satırı ekler; `--amend` ve `--no-verify` yasaktır." eklendi; ship-it Push satırı "`--force` yasak (commit kuralları `prove-it`'te)" olarak sadeleştirildi. |
+| KÜÇÜK: PROOF.md Tur 1 aralığı `03ea962` gösteriyor, PR head'i `735d54c` | `docs/proof/software-factory/PROOF.md` (Tur 1 tablosu) | Aralık hücresi `94465a9..735d54c (735d54c: yalnız PROOF.md)` olarak güncellendi. |
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `wc -w` AGENTS.md + 4 SKILL.md | ≤400 / ≤500 | 390 / 421 / 390 / 379 / 484 | 0 | PASS |
+| YAML frontmatter parse (4 dosya) | 4/4 OK | `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` | 0 | PASS |
+| `ConvertFrom-Json settings.json` | JSON OK | `JSON OK` | 0 | PASS |
+| `capture-screen.ps1` mutlak + göreli yol | 2 PNG > 0 bayt | mutlak: `capture-tur2.png` 327348 bayt; göreli (`Set-Location` scratchpad + `-Out capture-tur2-rel.png`): 328501 bayt, scratchpad'de oluştu | 0 | PASS |
+
+### Orkestratör doğrulaması
+Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştırdı:
+
+- Test komutu tekrar çalıştırıldı:
+  - `wc -w` (5 dosya) → 390 / 421 / 390 / 379 / 484 (yazarın ölçümüyle aynı; bütçeler içinde).
+  - `Get-Content -Raw .claude/settings.json | ConvertFrom-Json` → `JSON OK`.
+  - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` → katı YAML ayrıştırıcısı 4/4 geçti.
+  - `capture-screen.ps1 -Out capture-verify-tur2.png` (bağımsız çalıştırma, mutlak yol) → `Kaydedildi: …\capture-verify-tur2.png`, 211473 bayt.
+- `git diff --stat` kapsam kontrolü: 10 dosya, 97 ekleme, 31 silme — yalnız REVIEW-1.md'de adı geçen dosyalar + bu PROOF.md; kapsam dışı dosya yok. Her değişiklik okunarak doğrulandı: new-feature (a)–(e) harflendirme, madde (a) slug karşılaştırması, Çıkış Kapısı "slug'a EŞİT" şartı, Yasaklar tablosu 3 satır; settings.json deny +8 / ask +6 kural, `git stash *` ask'ta; capture-screen.ps1 mutlak yol + try/finally; reviewer-prompt.md satır 17; prove-it "Kalıcılaştır" commit kuralları; ship-it Push satırı ve `<dal-slug>`; AGENTS.md madde 2 `<dal-slug>`; builder-prompt.md DAL_SLUG notu.
+- Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
 
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->

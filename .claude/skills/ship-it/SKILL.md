@@ -1,6 +1,12 @@
 ---
 name: ship-it
-description: Use when a change with recorded proof is ready to leave the worktree — committing, pushing, opening a pull request, requesting review — or when anyone (including the user, even in advance) says "merge edelim", "gerisini hallet", "PR aç", "gönder", "sabah temiz main istiyorum". Keywords: ship, deliver, pull request, PR, draft, review, reviewer model, fable, score 0-5, merge, gh pr.
+description: >-
+  Use when a change with recorded proof is ready to leave the worktree —
+  committing, pushing, opening a pull request, requesting review — or when
+  anyone (including the user, even in advance) says "merge edelim", "gerisini
+  hallet", "PR aç", "gönder", "sabah temiz main istiyorum". Keywords: ship,
+  deliver, pull request, PR, draft, review, reviewer model, fable, score 0-5,
+  merge, gh pr.
 argument-hint: "[pr-basligi]"
 ---
 
@@ -18,11 +24,11 @@ Merge ASLA ajan tarafından yapılmaz. Kullanıcının önceden verdiği "5 geli
 
 ## Adımlar
 
-1. **Push**: `git push -u origin <dal>`; `git status` ile doğrula. `--force`, `--amend`, `--no-verify` yasak.
+1. **Push**: `git push -u origin <dal>`; `git status` ile doğrula. `--force` yasak (commit kuralları `prove-it`'te).
 2. **PR**: `gh pr create --draft --base main --title "<başlık>" --body-file <geçici dosya>`. Gövde: özet, kapsam, yazar modeli, PROOF.md blob linki. Taslak reddedilirse normal PR aç, `[WIP] ` önekiyle.
 3. **İnceleyici**: HER ZAMAN `Agent(subagent_type: general-purpose, model: fable)` (yedek `opus`). Asla `sonnet`, fork ya da orkestratörün kendisi. Prompt = doldurulmuş `reviewer-prompt.md` (PR no, worktree yolu, SHA'lar, PROOF.md yolu, gereksinim, yazar modeli).
 4. **Ayrıştır**: ilk `SKOR:` satırı, 0–5 tamsayı. Bozuksa bir kez "yalnız sözleşme biçiminde yanıtla" de.
-5. **Kaydet**: `docs/proof/<slug>/REVIEW-<n>.md` → commit → push; `gh pr comment <no> -F <dosya>`.
+5. **Kaydet**: `docs/proof/<dal-slug>/REVIEW-<n>.md` → commit → push; `gh pr comment <no> -F <dosya>`.
 6. **Karar**: SKOR = 5 → `gh pr ready <no>` (ya da `[WIP]` önekini kaldır) → PR bağlantısını sun → DUR. SKOR < 5 → ENGELLEYİCİ + ÖNEMLİ maddeler yeni Sonnet yazar görevine döner (`code-structure/builder-prompt.md`) → Adım 3'e (`## Tur n+1`) dön → yeni, taze Fable inceleyici.
 7. **Döngü sınırı**: 3. tur sonunda hâlâ < 5 → DUR; son REVIEW ile kullanıcıya eskale et.
 

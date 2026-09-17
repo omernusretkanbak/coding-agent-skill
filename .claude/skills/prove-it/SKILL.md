@@ -1,6 +1,11 @@
 ---
 name: prove-it
-description: Use before telling the user anything is done, fixed, working or passing, and before committing or opening a PR — especially when about to write "tamam", "bitti", "çalışıyor", "should work", or when an implementer subagent reports success. Keywords: prove, evidence, verification, screenshot, before after, test output, measurements, done claim, PROOF.md.
+description: >-
+  Use before telling the user anything is done, fixed, working or passing,
+  and before committing or opening a PR — especially when about to write
+  "tamam", "bitti", "çalışıyor", "should work", or when an implementer
+  subagent reports success. Keywords: prove, evidence, verification,
+  screenshot, before after, test output, measurements, done claim, PROOF.md.
 ---
 
 # KANITLA — prove-it
@@ -35,7 +40,7 @@ Gözlemlenebilir yüklem: değişiklik bir ekranı ya da görsel çıktıyı de�
 
 ## Kalıcılaştır
 
-`docs/proof/<dal-slug>/PROOF.md` (şablon: `PROOF-template.md`), görseller yanına yazılır. Orkestratör commit'ler; `SendUserFile` ile kullanıcıya gösterilir (araç yoksa mutlak yol + GitHub blob linki verilir). Her yeni inceleme turu PROOF.md'ye `## Tur N` bölümü EKLER, üzerine yazmaz.
+`docs/proof/<dal-slug>/PROOF.md` (şablon: `PROOF-template.md`), görseller yanına yazılır. Orkestratör commit'ler: mesajı dosyadan (`-F`) verir, `Co-Authored-By` satırı ekler; `--amend` ve `--no-verify` yasaktır. `SendUserFile` ile kullanıcıya gösterilir (araç yoksa mutlak yol + GitHub blob linki verilir). Her yeni inceleme turu PROOF.md'ye `## Tur N` bölümü EKLER, üzerine yazmaz.
 
 ## Çıkış Kapısı
 
