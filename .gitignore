@@ -1,0 +1,30 @@
+# Worktree dizinleri (izole calisma alanlari)
+.worktrees/
+.claude/worktrees/
+
+# Kisisel / yerel ayarlar
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Bagimliliklar
+node_modules/
+.venv/
+__pycache__/
+
+# Gizli bilgiler
+.env
+.env.*
+!.env.example
+.secrets.env
+
+# Loglar ve gecici
+*.log
+.claude_state/
+
+# Isletim sistemi / editor
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.vscode/
+.idea/
