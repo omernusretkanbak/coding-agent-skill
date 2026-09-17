@@ -22,7 +22,7 @@ Bu repoda her değişiklik dört istasyondan geçer. Bu dosya yalnız iş akış
 
 | Adım | Ad | Skill | Giriş koşulu | Çıkış koşulu |
 |---|---|---|---|---|
-| 1 | İZOLE ET | new-feature | Görev alındı | cwd `<kök>/.claude/worktrees/<slug>`, dal = görev slug'ı (≠ main) |
+| 1 | İZOLE ET | new-feature | Görev alındı | cwd `<kök>/.claude/worktrees/<dal-slug>`, dal = görev slug'ı (≠ main) |
 | 2 | İNŞA ET | code-structure | Adım 1 çıkışı veya inceleme bulguları | Testler yeşil, diff kapsam içinde |
 | 3 | KANITLA | prove-it | Adım 2 çıkışı | PROOF.md commit'li, orkestratör doğruladı, kullanıcıya sunuldu |
 | 4 | GÖNDER VE İNCELE | ship-it | Adım 3 çıkışı | SKOR 5 → PR hazır + bağlantı → DUR |
