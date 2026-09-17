@@ -214,4 +214,16 @@ Orkestratör (Fable 5.1, oturum) yazar ve özne raporlarına güvenmeden kendisi
 - `git diff --stat bbed215..2229914` kapsam kontrolü: 6 dosya, 99 ekleme, 7 silme — `.claude/settings.json`, `new-feature/SKILL.md`, `reviewer-prompt.md`, `AGENTS.md`, `PROOF.md`, `REVIEW-2.md`; yalnız REVIEW-2'de adı geçen dosyalar + kanıt kayıtları; kapsam dışı dosya yok. new-feature (a)/(c) ve Çıkış Kapısı metni okunarak doğrulandı (kök tespiti, mutlak yol, `gh pr view --json headRefName` yüklemi, slug türetimi); AGENTS.md Adım 1 çıkış koşulu; settings.json ask +4; reviewer-prompt izin notu.
 - Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
 
+## Sonuç (Tur 3 sonu — döngü sınırı)
+
+| Tur | İnceleyici | SKOR | ENGELLEYİCİ | ÖNEMLİ | KÜÇÜK | Kayıt |
+|---|---|---|---|---|---|---|
+| 1 | Fable 5.1 | 4 | 0 | 2 | 9 | `REVIEW-1.md` |
+| 2 | Fable 5.1 | 4 | 0 | 2 (1 yeni) | 6 | `REVIEW-2.md` |
+| 3 | Fable 5.1 | 4 | 0 | 1 | 4 | `REVIEW-3.md` |
+
+Eğilim: bulgu sayısı 11 → 8 → 5; ÖNEMLİ 2 → 2 → 1. Tur 3'te kalan tek ÖNEMLİ bulgu: `CLAUDE.md:5`'teki yedek komut hâlâ göreli `git worktree add ".claude/worktrees/<slug>"` (new-feature (a) "asla göreli yol" der; çelişki). Tek satırlık düzeltme; GREEN-4'te özne skill metnini izlediği için davranış doğruydu, ama metin çelişkisi duruyor.
+
+AGENTS.md Döngü Kuralı ("En fazla 3 tur; hâlâ 5 değilse son kararla kullanıcıya eskalasyon") gereği otomatik döngü burada durduruldu; PR taslak, merge yapılmadı. Karar kullanıcının. Not (KÜÇÜK-4): GREEN-4 öznesinin cwd'si `git -C` ile simüle edildi; transkript dosyası yok, alıntılar orkestratör kaydıdır; `green4-setup.sh` scratchpad'dedir, commit'lenmemiştir.
+
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->
