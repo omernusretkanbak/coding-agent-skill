@@ -160,3 +160,175 @@ Madde 2 orkestratör katmanı: RED 0/2, GREEN (REFACTOR öncesi) 1/2, REFACTOR s
 2. `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs` — 7/7 PASS, çıkış 0 beklenir (~35 sn; gerçek headless Edge başlatır).
 3. `wc -w .claude/skills/{code-structure,new-feature,prove-it,ship-it}/SKILL.md` — hepsi ≤ 500 beklenir.
 4. `node .claude/skills/prove-it/scripts/capture-page.mjs --help` — kullanım metni, çıkış 0 beklenir.
+
+## Tur 2
+
+| Görev | Tür | Aralık | Tur | Yazar modeli |
+|---|---|---|---|---|
+| REVIEW-1 (SKOR 4) düzeltmeleri: `killByProfileDir` kendini öldürme hatası + test düzeneği zaman aşımı sözleşmesi + küçük bulgular | mantık | ea0d959..bu turun commit'i | 2 | sonnet |
+
+### İddia
+- [x] **ONEMLI-1** (`capture-page.mjs:271-300`, `killByProfileDir`/`countByProfileDir`) — Windows filtresi artık `$_.ProcessId -ne $PID` ile sorguyu çalıştıran powershell.exe'yi hariç tutuyor (`buildProfileDirFilter`, satır 271-274); POSIX `pkill -f` dalına dokunulmadı. TDD ile doğrulandı: KIRMIZI test önce eski (PID hariç tutmayan) koda karşı çalıştırıldı, sonra düzeltme uygulandı, YEŞİL görüldü — ikisi de aşağıda.
+- [x] **ONEMLI-2** (`capture-page.test.mjs:130-166`, `runCapture`) — `--timeout-ms` verilmeyen çağrılara artık `DEFAULT_INNER_TIMEOUT_MS=8000` enjekte ediliyor; düzenek zaman aşımı `innerTimeoutMs + CLEANUP_BUDGET_MS(25000)`'den türetiliyor (opts.timeout ile açıkça override edilmediği sürece); betiğin "dış zaman aşımı iç olandan uzun olmalı" sözleşmesi bir `assert.ok` ile testte de zorunlu kılınıyor (satır 164-167).
+- [x] **KUCUK-1** (`capture-page.mjs:20-27`) — "ERKEN EVREDE YENİDEN BAŞLATIR / saniyenin altında çıkar / İLGİSİZ" kesinlik dili "erken evrede yeniden başlatabilir; spawn PID'ine güvenilmez" olarak yumuşatıldı.
+- [x] **KUCUK-2** (`capture-page.mjs:271-274`, `buildProfileDirFilter`) — `-like '*...*'` joker deseni kaldırıldı; `$_.CommandLine.Contains('...')` kullanılıyor (tek tırnak kaçışı korundu, `$_.CommandLine` null-guard eklendi). `killByProfileDir` ve `countByProfileDir` AYNI filtreyi tek fonksiyondan üretiyor.
+- [x] **KUCUK-3** (`capture-page.test.mjs:107`) — `before()` artık `assert.equal(processesBefore, 0, ...)` ile başlangıç koşulunu zorunlu kılıyor (önceden yalnız `after()` mesajında görünüyordu).
+- [x] **KUCUK-4** (`capture-page.mjs:555`) — `--eval` sonucu `undefined` ise artık `evalResult.result.value ?? null` ile `EVAL=null` (geçerli JSON) yazılıyor; manuel doğrulama aşağıda ("Sonra").
+- [x] **KUCUK-5** (`capture-page.mjs:351-364`, `cleanupResources`) — her kill turundan ÖNCE `countByProfileDir` çağrılıyor; KESİN 0 ise kalan turlar atlanıyor (sayım başarısız olup -1 dönerse — "bilinmiyor" — atlanmıyor, yetim güvencesi zayıflatılmadı).
+- [x] **KUCUK-7** — aşağıdaki "Not (KUCUK-7)" bölümüne bakınız; Tur 1 metni değiştirilmedi.
+- [x] **KUCUK-6** — bilgi notu (SKILL.md 500 kelime payı sıfır); bu tur SKILL.md'lere dokunulmadı, eylem gerekmiyor.
+
+### Önce
+
+**ONEMLI-1 — kırmızı test (düzeltmeden ÖNCE, `killByProfileDir` hâlâ `-like` + PID hariç tutmadan; yalnız test edilebilirlik için `export`/ana-modül-koruması eklenmiş haliyle çalıştırıldı):**
+
+Komut: `node --test --test-name-pattern="killByProfileDir" .claude/skills/prove-it/scripts/capture-page.test.mjs`
+
+```
+✖ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1458.9884ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3319.5418
+
+✖ failing tests:
+
+test at .claude\skills\prove-it\scripts\capture-page.test.mjs:273:1
+✖ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1458.9884ms)
+  AssertionError [ERR_ASSERTION]: powershell sorgusu kendi sürecini öldürüp 0 dışı çıkışla dönmemeli (status=4294967295, error=undefined)
+
+  4294967295 !== 0
+
+      at TestContext.<anonymous> (file:///D:/CODING%20AGENT%20SKILL/.claude/worktrees/pilot-dersleri/.claude/skills/prove-it/scripts/capture-page.test.mjs:293:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 4294967295,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+EXIT:1
+```
+
+`4294967295` (= `2^32 - 1`, Windows'ta bir sürecin kendi kendini `TerminateProcess` ile kapattığı durumda görülen imzasız temsil) — REVIEW-1'in bizzat gözlemlediği değerle (`4294967295 (−1)`) birebir aynı. RED çalıştırmasından sonra yardımcı süreçlerden geriye kalan sayıldı: `Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-killtest-'` → 0 (testin kendi `finally` bloğu temizledi).
+
+**ONEMLI-2 — eski zaman aşımı değerleri (düzeltmeden ÖNCE):** düzenek (`runCapture`, o zamanki hali) `opts.timeout ?? 20000` ile alt süreci sabit 20000 ms'de `child.kill()` (Windows'ta `TerminateProcess`) ile öldürüyordu; testler `--timeout-ms` VERMEDİĞİNDEN betik KENDİ varsayımıyla (`capture-page.mjs` içindeki `parseArgs`: `timeoutMs: 30000`) çalışıyordu. Yani düzenek zaman aşımı (20000) betiğin iç zaman aşımından (30000) KISAYDI — betiğin kendi sözleşmesinin (dosya başı yorum: "çağıran `--timeout-ms`'i KENDİ dış zaman aşımından KISA tutmalı") tam tersi. Bu, hiçbir testte gözlemlenen bir çökme YARATMADI (gerçek koşular ölçülen 2.5–8.7 sn arasında tamamlandığı için 20000 ms sınırına hiç değmedi) ama sözleşme ihlali gerçek: bir CDP adımı yavaşlasaydı düzenek betiği `finally` bloğuna hiç uğratmadan öldürecekti.
+
+### Sonra
+
+**ONEMLI-1 — yeşil (düzeltmeden SONRA, iki ardışık koşu):**
+
+Komut: `node --test --test-name-pattern="killByProfileDir" .claude/skills/prove-it/scripts/capture-page.test.mjs`
+
+Koşu 1:
+```
+✔ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1504.3924ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3270.3429
+EXIT:0
+```
+
+Koşu 2:
+```
+✔ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1532.6031ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3227.0725
+EXIT:0
+```
+
+**Tam düzenek — iki ardışık koşu (8/8 test; killByProfileDir testi dahil):**
+
+Komut: `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs`
+
+Koşu 1:
+```
+✔ temel yakalama: PNG imzası + IHDR boyutu istenenle eşleşir, çıkış 0 (4262.3728ms)
+✔ --media prefers-color-scheme=dark karanlık CSS uygular, --media olmadan açık kalır (4698.8656ms)
+✔ --setup ile localStorage tohumlama sonrası DOM tohumu gösterir (2544.6029ms)
+✔ temizlik: çıkıştan sonra profil dizini yok, CDP portu cevap vermiyor, yetim süreç kalmıyor (3231.1856ms)
+✔ erişilemeyen URL: çıkış 1, temizlik yapılmış, yetim süreç kalmıyor (5425.4271ms)
+✔ iç zaman aşımı (--timeout-ms 1): çıkış 1, temizlik yapılmış, yetim süreç kalmıyor (4635.9115ms)
+✔ --url verilmezse çıkış 2 (95.1266ms)
+✔ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1716.0777ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28381.9657
+EXIT:0
+```
+
+Koşu 2:
+```
+✔ temel yakalama: PNG imzası + IHDR boyutu istenenle eşleşir, çıkış 0 (2507.1114ms)
+✔ --media prefers-color-scheme=dark karanlık CSS uygular, --media olmadan açık kalır (5829.4923ms)
+✔ --setup ile localStorage tohumlama sonrası DOM tohumu gösterir (2753.1756ms)
+✔ temizlik: çıkıştan sonra profil dizini yok, CDP portu cevap vermiyor, yetim süreç kalmıyor (5280.638ms)
+✔ erişilemeyen URL: çıkış 1, temizlik yapılmış, yetim süreç kalmıyor (5760.5482ms)
+✔ iç zaman aşımı (--timeout-ms 1): çıkış 1, temizlik yapılmış, yetim süreç kalmıyor (4886.9108ms)
+✔ --url verilmezse çıkış 2 (94.3738ms)
+✔ killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez (1469.8267ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30719.5754
+EXIT:0
+```
+
+**KUCUK-4 — manuel doğrulama (`EVAL=null`):** yerel bir `node:http` sunucusuna karşı `--eval 'void 0'` ile çağrıldı (`node .claude/skills/prove-it/scripts/capture-page.mjs --url http://127.0.0.1:<port>/ --out <tmp>.png --eval "void 0" --timeout-ms 8000`) → stdout `EVAL=null` (önceden `EVAL=undefined`, geçersiz JSON, olurdu), çıkış 0. Sonra dosya silindi.
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `node --test --test-name-pattern="killByProfileDir" ...capture-page.test.mjs` (düzeltmeden ÖNCE) | KIRMIZI: kendi sürecini öldürüp 0 dışı çıkış | 1/1 FAIL, `status=4294967295 !== 0` | 1 | PASS (beklenen kırmızı) |
+| `node --test --test-name-pattern="killByProfileDir" ...capture-page.test.mjs` (düzeltmeden SONRA, 2 ardışık koşu) | 1/1 PASS | 1/1 PASS (2/2 koşu) | 0 | PASS |
+| `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs` (tam düzenek, 2 ardışık koşu) | 8/8 PASS | 8/8 PASS (2/2 koşu) | 0 | PASS |
+| `node capture-page.mjs --eval 'void 0'` (manuel, KUCUK-4) | `EVAL=null` | `EVAL=null` | 0 | PASS |
+| `node capture-page.mjs --help` / argümansız (main-guard regresyon kontrolü) | çıkış 0 / çıkış 2 | çıkış 0 / çıkış 2 | 0 / 2 | PASS |
+| Yazar yetim süreç taraması (`Get-CimInstance Win32_Process CommandLine -match 'capture-page-'`), her koşudan önce/sonra | 0/0 | 0/0 (RED öncesi, RED sonrası, GREEN koşu 1 öncesi/sonrası, GREEN koşu 2 sonrası, tam düzenek koşu 1/2 öncesi/sonrası, manuel EVAL kontrolü sonrası — bkz. "SURECLER") | — | PASS |
+
+### Not (KUCUK-7)
+REVIEW-1'in KUCUK-7 bulgusu: Tur 1 PROOF metninde (satır 29, 128) R1 öznesinin `Stop-Process -Name msedge -Force` ÇALIŞTIRDIĞI iddiası, korunan kanıtta (`evidence\red-s1-PROOF.md`, iki `.ps1.txt`) doğrulanabilir değil. Tur 1 metni bu tur DEĞİŞTİRİLMEDİ (yukarıdaki "Önce" bölümü, satır 29 ve 128, aynen duruyor). Bu iddia **orkestratör gözlemi (öznenin raporundan; transkript saklanmadı)** olarak işaretlenir — yük taşıyan bir iddia değildir, Açık 1/2/3'ün hiçbirini desteklemez.
+
+### Orkestratör doğrulaması
+- Test komutu tekrar çalıştırıldı (orkestratör, bağımsız): `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs` → 8/8 pass (yeni `killByProfileDir (Windows)` testi dahil), 0 fail, çıkış 0. Öncesi/sonrası `Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-|setInterval'` → 0 / 0; `%TEMP%\capture-page-*` → 0. Argümansız çağrı → çıkış 2; `--help` → çıkış 0 (ana-modül koruması CLI davranışını bozmadı).
+- `git diff --stat` kapsam kontrolü: yalnız `capture-page.mjs` (+80/−22), `capture-page.test.mjs` (+101/−3), `PROOF.md` (+172/−0; `git diff --numstat`, bu doğrulama satırları eklenmeden önce). `git diff --quiet ea0d959 -- .claude/skills/prove-it/SKILL.md .claude/skills/prove-it/PROOF-template.md .claude/skills/prove-it/scripts/capture-screen.ps1 .claude/skills/ship-it AGENTS.md CLAUDE.md docs/proof/pilot-dersleri/REVIEW-1.md` → çıkış 0 (değişmedi). Tur 1 bölümü yerinde (yalnız sona ekleme).
+- Aralık/Yeniden üretme: `ea0d959..bu turun commit'i`; "çalışma ağacı" ya da taban SHA'yı HEAD sayan adım yok → doğruydu (1. adım "Bu turun commit'ini checkout et").
+- Görseller açıldı / eşleşti: uygulanamaz — bu turda yeni görsel yok (kanıt dizinindeki tek görsel `ornek-capture.png` değişmedi).
+- Süreç/port temizliği: CDP/`capture-page-*` profilli tarayıcılar, testin sahte `node -e setInterval` süreçleri, 5301–5303 → kapalı (sayım 0; Listen 0). Durdurulması gereken süreç çıkmadı.
+
+### Kapsam dışı / bilinen eksikler
+- SKILL.md'ler, `PROOF-template.md`, `capture-screen.ps1`, `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `REVIEW-1.md` bu tur DEĞİŞMEDİ (görev kapsamı dışı).
+- `countByProfileDir`'in POSIX (`pgrep -f`) dalı yalnız KUCUK-5 iyileştirmesi için eklendi; bu makinede (Windows) çalıştırılıp doğrulanmadı — yalnız statik olarak `pkill -f` ile tutarlı yazıldı.
+- Genel `--timeout-ms` bütçesi hâlâ tek bir global watchdog değil (Tur 1'den kalan bilinen basitleştirme, bu turun kapsamı dışı).
+
+### Yeniden üretme
+1. Bu turun commit'ini checkout et (SHA: REVIEW-2.md başlığı / PR head'i).
+2. `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs` — 8/8 PASS, çıkış 0 beklenir (~30 sn; gerçek headless Edge + gerçek yardımcı süreç öldürme testi başlatır).
+3. `node .claude/skills/prove-it/scripts/capture-page.mjs --help` — kullanım metni, çıkış 0 beklenir; argümansız — çıkış 2 beklenir.
+4. Her koşudan önce/sonra `Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-'` → 0/0 beklenir.

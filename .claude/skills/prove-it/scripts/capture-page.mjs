@@ -19,12 +19,12 @@
 //
 // Süreç hijyeni: tarayıcı süreci ve geçici profili HER çıkış yolunda (normal,
 // hata, iç zaman aşımı, SIGINT/SIGTERM) tek bir cleanup() fonksiyonuyla
-// temizlenir. ÖNEMLİ (TDD sırasında bu makinede ölçüldü, bkz. PROOF.md):
-// Edge/Chrome kendini ERKEN EVREDE YENİDEN BAŞLATIR — `spawn()`'dan dönen
-// PID saniyenin altında çıkar, GERÇEK tarayıcı PID zincirinde İLGİSİZ,
-// YENİ bir PID'de sürer. Bu yüzden PID/ağaç tabanlı kapatma (`taskkill
-// /PID <eski-pid> /T`) genelde "process not found" ile SESSİZCE HİÇBİR ŞEY
-// YAPMAZ. Güvenilir tek yöntem: komut satırında bu çalıştırmaya özgü,
+// temizlenir. NOT (TDD sırasında bu makinede gözlendi, bkz. PROOF.md):
+// Edge/Chrome kendini erken evrede yeniden başlatabilir — bu durumda
+// `spawn()`'dan dönen PID gerçek tarayıcı sürecini temsil etmeyebilir;
+// spawn PID'ine güvenilmez. Bu yüzden PID/ağaç tabanlı kapatma (`taskkill
+// /PID <eski-pid> /T`) bazı durumlarda "process not found" ile SESSİZCE
+// HİÇBİR ŞEY YAPMAZ. Güvenilir tek yöntem: komut satırında bu çalıştırmaya özgü,
 // rastgele üretilmiş profil dizini yolunu taşıyan TÜM süreçleri (PID
 // zincirinden bağımsız) tarayıp kapatmak — Windows'ta `Get-CimInstance
 // Win32_Process` + `Stop-Process -Force`, POSIX'te `pkill -9 -f`. profileDir
@@ -39,6 +39,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const HELP = `Kullanım:
@@ -255,22 +256,67 @@ function waitForExit(child, ms) {
 // yüzden `spawn()`'dan dönen PID gerçek tarayıcıyı temsil etmeyebilir (bkz.
 // dosya başı yorumu + PROOF.md ölçümü). `profileDir` her çalıştırmada
 // `mkdtempSync` ile rastgele üretildiği için bu eşleşme kesindir.
+// Windows Where-Object filtresi: hem killByProfileDir hem countByProfileDir
+// AYNI filtreyi kullanır (yalnız "say" ile "öldür" farklıdır), tutarsızlık
+// riski olmasın diye tek yerden üretilir. REVIEW-1 ONEMLI-1: sorguyu
+// ÇALIŞTIRAN powershell.exe'nin KENDİ komut satırında da profil yolu geçtiği
+// için filtre `$_.ProcessId -ne $PID` İLE kendini dışlamalı — aksi halde
+// sorgu süreci kendisiyle eşleşip kendini Stop-Process ile öldürür (gözlenen
+// çıkış: 4294967295 / -1). Ayrıca `-like` joker deseni yerine `.Contains()`
+// kullanılır (REVIEW-1 KUCUK-2): `profileDir` köşeli parantez/`*`/`?` gibi
+// PowerShell joker karakterleri taşıyorsa (ör. kullanıcı adında `[...]`)
+// `-like` sessizce eşleşmeyi kaçırabilir, `.Contains()` düz metin karşılaştırır.
+// `$_.CommandLine` bazı (ör. korumalı/sistem) süreçlerde $null olabileceğinden
+// önce varlığı kontrol edilir.
+function buildProfileDirFilter(profileDir) {
+  const escaped = profileDir.replace(/'/g, "''");
+  return `$_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine.Contains('${escaped}')`;
+}
+
 function killByProfileDir(profileDir) {
   if (process.platform === 'win32') {
-    const escaped = profileDir.replace(/'/g, "''");
     const cmd =
-      `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${escaped}*' } | ` +
+      `Get-CimInstance Win32_Process | Where-Object { ${buildProfileDirFilter(profileDir)} } | ` +
       'ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch {} }';
     try {
-      spawnSync('powershell', ['-NoProfile', '-Command', cmd], { stdio: 'ignore' });
-    } catch {}
-    return;
+      return spawnSync('powershell', ['-NoProfile', '-Command', cmd], { stdio: 'ignore' });
+    } catch (err) {
+      return { error: err };
+    }
   }
   // POSIX: komut satırında profil yolu geçen süreçleri ada/PID zincirine
-  // bakmadan öldürür.
+  // bakmadan öldürür. `pkill -f` çağıran sürecin KENDİSİNİ eşleştirmez
+  // (dokunulmadı — REVIEW-1: "POSIX pkill -f dalına dokunma").
   try {
-    spawnSync('pkill', ['-9', '-f', profileDir], { stdio: 'ignore' });
-  } catch {}
+    return spawnSync('pkill', ['-9', '-f', profileDir], { stdio: 'ignore' });
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// Yalnız SAYAR, öldürmez. cleanupResources() bunu her tekrar turundan önce
+// çağırıp eşleşen süreç KESİN olarak 0 ise kalan powershell/pgrep turlarını
+// atlar (performans, REVIEW-1 KUCUK-5). Sayım başarısız olursa (-1) güvenlik
+// amacıyla "bilinmiyor" döner — çağıran taraf bunu 0 SAYMAMALI, turu
+// atlamamalıdır (yetim güvencesi zayıflatılmaz).
+function countByProfileDir(profileDir) {
+  if (process.platform === 'win32') {
+    const cmd = `(Get-CimInstance Win32_Process | Where-Object { ${buildProfileDirFilter(profileDir)} } | Measure-Object).Count`;
+    try {
+      const res = spawnSync('powershell', ['-NoProfile', '-Command', cmd], { encoding: 'utf8' });
+      const n = parseInt((res.stdout || '').trim(), 10);
+      return Number.isFinite(n) ? n : -1;
+    } catch {
+      return -1;
+    }
+  }
+  try {
+    const res = spawnSync('pgrep', ['-f', profileDir], { encoding: 'utf8' });
+    if (res.error) return -1;
+    return (res.stdout || '').split('\n').filter((l) => l.trim().length > 0).length;
+  } catch {
+    return -1;
+  }
 }
 
 function spawnBrowser(browserPath, profileDir) {
@@ -305,12 +351,17 @@ async function cleanupResources(state) {
   }
   // Tarayıcı kendi başlangıç evresinde yeni alt süreçler doğurmaya devam
   // edebileceğinden (yarış durumu), profil-dizini taraması birkaç tur, kısa
-  // aralıklarla tekrarlanır.
-  await killByProfileDir(state.profileDir);
-  await sleep(300);
-  await killByProfileDir(state.profileDir);
-  await sleep(300);
-  await killByProfileDir(state.profileDir);
+  // aralıklarla tekrarlanır. Her turdan ÖNCE sayım yapılır (REVIEW-1
+  // KUCUK-5): eşleşen süreç KESİN olarak 0 ise (countByProfileDir 0 döner,
+  // -1 "bilinmiyor" değil) kalan turlar atlanır — başarı yolunda genelde
+  // ilk turda 0 bulunur, ~2 powershell geçişi + 600 ms tasarruf edilir.
+  const PROFILE_KILL_PASSES = 3;
+  const PROFILE_KILL_DELAY_MS = 300;
+  for (let i = 0; i < PROFILE_KILL_PASSES; i++) {
+    if (countByProfileDir(state.profileDir) === 0) break;
+    killByProfileDir(state.profileDir);
+    if (i < PROFILE_KILL_PASSES - 1) await sleep(PROFILE_KILL_DELAY_MS);
+  }
   await removeProfileDir(state.profileDir);
 }
 
@@ -501,7 +552,7 @@ async function run(args, browserPath) {
       if (evalResult.exceptionDetails) {
         throw new Error(`--eval hata: ${describeException(evalResult.exceptionDetails)}`);
       }
-      console.log(`EVAL=${JSON.stringify(evalResult.result.value)}`);
+      console.log(`EVAL=${JSON.stringify(evalResult.result.value ?? null)}`);
     }
 
     const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
@@ -566,4 +617,11 @@ async function main() {
   process.exit(result.code);
 }
 
-main();
+// Betik doğrudan çalıştırıldığında (`node capture-page.mjs ...`) CLI olarak
+// çalışır; testten `import()` edildiğinde main() ÇALIŞMAZ, yalnız aşağıdaki
+// fonksiyonlar (ör. killByProfileDir) dışa aktarılır.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
+
+export { killByProfileDir, countByProfileDir };

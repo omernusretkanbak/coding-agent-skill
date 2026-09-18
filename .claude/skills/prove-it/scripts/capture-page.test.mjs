@@ -16,7 +16,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(__dirname, 'capture-page.mjs');
@@ -101,6 +101,10 @@ function countProcessesWithProfile(profileDir) {
 
 before(async () => {
   processesBefore = countCapturePageProcesses();
+  // REVIEW-1 KUCUK-3: önceden zorunlu kılınmıyordu (yalnız after() mesajında
+  // görünüyordu) — önceden kalmış bir yetim, bu süiti YANLIŞ nedenle
+  // düşürebilirdi. Artık başlangıç koşulu burada assert edilir.
+  assert.equal(processesBefore, 0, `test koşusu BAŞLAMADAN ÖNCE yetim capture-page-* tarayıcı süreci var (${processesBefore})`);
 
   server = createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -126,12 +130,47 @@ after(async () => {
   );
 });
 
+// REVIEW-1 ONEMLI-2: bu düzenek daha önce alt süreci sabit 20000 ms'de
+// `child.kill()` (Windows'ta TerminateProcess) ile öldürüyordu, ama testler
+// `--timeout-ms` VERMEDİĞİNDEN betik kendi varsayımıyla (capture-page.mjs
+// `timeoutMs: 30000`) çalışıyordu — düzenek zaman aşımı (20000) betiğin iç
+// zaman aşımından (30000) KISAYDI. Betiğin kendi sözleşmesi (dosya başı
+// yorum: "çağıran --timeout-ms'i KENDİ dış zaman aşımından KISA tutmalı,
+// aksi halde temizlik fırsatı bulunamaz") tam tersini gerektirir; ihlal
+// edilince Windows'ta `finally`/sinyal işleyicisi hiç çalışmadan yetim
+// tarayıcı kalıyordu (PROOF.md'nin bizzat teşhis ettiği mekanizmanın aynısı).
+// Düzeltme: düzenek --timeout-ms verilmemişse KENDİ küçük iç zaman aşımını
+// enjekte eder ve düzenek zaman aşımını bundan TÜRETİR, sözleşmeyi burada da
+// zorunlu kılar (aşağıdaki assert).
+const DEFAULT_INNER_TIMEOUT_MS = 8000;
+// capture-page.mjs'teki GERÇEK temizlik bütçesi (cleanupResources +
+// removeProfileDir): waitForExit 1000 ms + en çok PROFILE_KILL_PASSES(3) tur
+// x PROFILE_KILL_DELAY_MS(300 ms, 2 ara) = 600 ms + her tur ~1-2 kısa ömürlü
+// powershell/pgrep çağrısı (yüklü makinede çağrı başına ~500 ms varsayımıyla
+// ≈ 3000 ms) + removeProfileDir totalBudgetMs 15000 ms ≈ 19600 ms; güvenlik
+// payıyla yukarı yuvarlandı.
+const CLEANUP_BUDGET_MS = 25000;
+
 // Betiği ASENKRON spawn ile çağırır (bkz. dosya başı yorumu — spawnSync BURADA
 // YASAK). Node'un olay döngüsü boşta kalır, bu yüzden aynı süreçteki test
 // sunucusu alt sürecin isteklerine cevap verebilir.
 function runCapture(args, opts = {}) {
+  const hasExplicitTimeout = args.includes('--timeout-ms');
+  const innerTimeoutMs = hasExplicitTimeout
+    ? Number(args[args.indexOf('--timeout-ms') + 1])
+    : DEFAULT_INNER_TIMEOUT_MS;
+  const effectiveArgs = hasExplicitTimeout ? args : [...args, '--timeout-ms', String(DEFAULT_INNER_TIMEOUT_MS)];
+  const harnessTimeoutMs = opts.timeout ?? innerTimeoutMs + CLEANUP_BUDGET_MS;
+  // Betiğin kendi sözleşmesi ("dış zaman aşımı iç olandan UZUN olmalı") testte
+  // de sağlanır: sağlanmazsa düzenek, betiğin temizlik fırsatı bulmadan
+  // TerminateProcess ile öldürür ve yetim bırakabilir.
+  assert.ok(
+    harnessTimeoutMs > innerTimeoutMs,
+    `düzenek zaman aşımı (${harnessTimeoutMs}) iç zaman aşımından (${innerTimeoutMs}) uzun olmalı`,
+  );
+
   return new Promise((resolve) => {
-    const child = spawn('node', [SCRIPT, ...args], { windowsHide: true });
+    const child = spawn('node', [SCRIPT, ...effectiveArgs], { windowsHide: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => {
@@ -142,7 +181,7 @@ function runCapture(args, opts = {}) {
     });
     const timer = setTimeout(() => {
       child.kill();
-    }, opts.timeout ?? 20000);
+    }, harnessTimeoutMs);
     child.on('close', (code) => {
       clearTimeout(timer);
       resolve({ status: code, stdout, stderr });
@@ -261,3 +300,62 @@ test('--url verilmezse çıkış 2', async () => {
   const res = await runCapture(['--out', out]);
   assert.equal(res.status, 2, `stderr:\n${res.stderr}\nstdout:\n${res.stdout}`);
 });
+
+// REVIEW-1 ONEMLI-1: killByProfileDir'in Windows dalı, sorguyu ÇALIŞTIRAN
+// powershell.exe'nin KENDİ komut satırında da profil yolu geçtiği için
+// kendisiyle eşleşip kendini Stop-Process ile öldürüyordu (gözlenen çıkış
+// 4294967295 / -1). Bu test yardımcı (hedef) süreçler doğrudan
+// killByProfileDir() çağrılarak öldürülürken sorguyu çalıştıran sürecin
+// KENDİSİNİN hayatta kalıp 0 ile döndüğünü doğrular — betik doğrudan CLI
+// olarak değil, fonksiyon olarak `import()` edilir (bkz. capture-page.mjs
+// dosya sonu: doğrudan çalıştırıldığında CLI, import edildiğinde export).
+test(
+  'killByProfileDir (Windows): yardımcı süreçleri öldürür, sorguyu çalıştıran kendi PowerShell sürecini öldürmez',
+  { skip: IS_WINDOWS ? false : 'yalnız Windows dalı test ediliyor' },
+  async () => {
+    const { killByProfileDir } = await import(pathToFileURL(SCRIPT).href);
+    const profileDir = mkdtempSync(path.join(os.tmpdir(), 'capture-page-killtest-'));
+    const helpers = [];
+    try {
+      for (let i = 0; i < 3; i++) {
+        helpers.push(
+          spawn('node', ['-e', 'setInterval(() => {}, 1000)', profileDir], {
+            windowsHide: true,
+            stdio: 'ignore',
+          }),
+        );
+      }
+      // Yardımcı süreçlerin Win32_Process'e görünür olması için kısa bekleme.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const result = killByProfileDir(profileDir);
+      assert.equal(
+        result?.status,
+        0,
+        `powershell sorgusu kendi sürecini öldürüp 0 dışı çıkışla dönmemeli ` +
+          `(status=${result?.status}, error=${result?.error})`,
+      );
+
+      for (const child of helpers) {
+        const exited = await new Promise((resolve) => {
+          if (child.exitCode !== null || child.signalCode !== null) return resolve(true);
+          const timer = setTimeout(() => resolve(false), 5000);
+          child.once('exit', () => {
+            clearTimeout(timer);
+            resolve(true);
+          });
+        });
+        assert.equal(exited, true, `yardımcı süreç (PID ${child.pid}) öldürülmedi`);
+      }
+    } finally {
+      for (const child of helpers) {
+        try {
+          if (child.exitCode === null && child.signalCode === null) child.kill();
+        } catch {}
+      }
+      try {
+        rmSync(profileDir, { recursive: true, force: true });
+      } catch {}
+    }
+  },
+);
