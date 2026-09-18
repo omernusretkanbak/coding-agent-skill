@@ -112,7 +112,7 @@ Orkestratör (oturum modeli: Fable 5.1) yazar alt-ajanlarının raporlarına gü
 3. `git check-ignore -v .claude/worktrees/ .worktrees/`
 4. RED/GREEN için: temiz bir klonda Sonnet alt-ajanına aynı üç baskı mesajını ver — skill'siz `main` ile, skill'li bu dalla.
 5. `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/prove-it/scripts/capture-screen.ps1 -Out test.png`
-6. GREEN-4 fixture'ı: scratchpad `green4-setup.sh` (commit'lenmedi, kişisel mutlak yollar içerir); öznenin raporu `green4-results.md` (scratchpad); PROOF'taki alıntılar orkestratör kaydıdır, öznenin cwd'si `git -C` ile simüle edilmiştir.
+6. GREEN-4 fixture'ı: scratchpad `green4-setup.sh` (commit'lenmedi, kişisel mutlak yollar içerir); öznenin raporu `green4-results.md` (scratchpad); PROOF'taki alıntılar orkestratör kaydıdır, öznenin cwd'si `git -C` ile simüle edilmiştir. Tam transkript yok; öznenin son raporu (`green4-results.md`) REVIEW-3 sonrası orkestratör tarafından kaydedildi, `## Sonuç` bölümündeki 'transkript dosyası yok' notu bu anlamdadır.
 
 ## Tur 2
 
@@ -242,7 +242,7 @@ Aralık: `14155a0..ccc8fd8` (düzeltmeler: CLAUDE.md, AGENTS.md, new-feature/SKI
 ### Bulgu → Düzeltme
 | Bulgu | Dosya | Yapılan |
 |---|---|---|
-| ÖNEMLİ-1: CLAUDE.md:5'teki yedek komut göreli `git worktree add ".claude/worktrees/<slug>"` kullanıyordu, new-feature (a)'nın "asla göreli yol" kuralıyla çelişiyordu | `CLAUDE.md:5` | Satır "Araç kullanılamıyorsa `new-feature` (c)'deki kök tespitiyle `git worktree add "<kök>/.claude/worktrees/<slug>" -b <slug> origin/main` (asla göreli yol)." olarak değiştirildi; blok 6 madde olarak kaldı. |
+| ÖNEMLİ-1: CLAUDE.md:5'teki yedek komut göreli `git worktree add ".claude/worktrees/<slug>"` kullanıyordu, new-feature (a)'nın "asla göreli yol" kuralıyla çelişiyordu | `CLAUDE.md:5` | Satır "Araç kullanılamıyorsa `new-feature` (c)'deki kök tespitiyle `git worktree add "<kök>/.claude/worktrees/<slug>" -b <slug> origin/main` (asla göreli yol)." olarak değiştirildi; blok 5 madde (plan bütçesi ≤8 satır korundu). |
 | KÜÇÜK-1: `gh pr view --json headRefName` PR numarası olmadan mevcut daldan çözülüyordu, cwd'ye göre kayıyordu; (a) `/`→`-` uygulamıyordu | `.claude/skills/new-feature/SKILL.md` (madde a) | "Dal adı (`/` → `-` uygulanmış) bu görevin slug'ıyla aynıysa" ve "İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır (`gh pr view <no> --json headRefName`; PR numarasıyla, cwd'den bağımsız)." olarak güncellendi. |
 | KÜÇÜK-2: AGENTS.md Adım 1 çıkış koşulunda `<slug>` yer tutucusu, dosyanın geri kalanı `<dal-slug>` kullanıyordu | `AGENTS.md` (Montaj Hattı tablosu, Adım 1) | "cwd `<kök>/.claude/worktrees/<slug>`" → "cwd `<kök>/.claude/worktrees/<dal-slug>`" olarak değiştirildi. |
 | KÜÇÜK-3: (c) "Native araç varsa `EnterWorktree name=<slug>` çağır" derken, zaten bir worktree'de olan özneye aracın bunu reddedeceğini belirtmiyordu | `.claude/skills/new-feature/SKILL.md` (madde c) | "Native araç varsa ve henüz bir worktree'de değilsen `EnterWorktree name=<slug>` çağır (dizin `<kök>/.claude/worktrees/<slug>` olur); zaten bir worktree'deysen `name=`'i atla, doğrudan `git worktree add`'e geç (araç worktree içinden yeni worktree açmaz)." olarak genişletildi. |
@@ -262,8 +262,45 @@ Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştır
   - `git grep -n "worktree add" -- AGENTS.md CLAUDE.md .claude/skills` düzeltme ÖNCESİ (14155a0'da) alındı → `CLAUDE.md:5` göreli biçimde (RED); düzeltme SONRASI tekrar → iki eşleşme de `"<kök>/.claude/worktrees/<slug>"` (GREEN).
   - `wc -w` (5 dosya) → 393 / 493 / 390 / 379 / 484 (yazarın ölçümüyle aynı; bütçeler içinde).
   - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → 4/4 (377/392/354/383, hepsi "Use when/before").
-  - Harness kanıtı: Tur 4 sırasında Claude Code, worktree'deki `.claude/skills` altından dört skill'i (`new-feature`, `code-structure`, `prove-it`, `ship-it`) `>-` katlanmış açıklamalarıyla kullanılabilir skill listesine ekledi → yükleme doğrulandı.
+  - Harness kanıtı (orkestratör kaydı, inceleyici bağlamında yeniden üretilemez): Tur 4 sırasında orkestratörün oturumuna düşen skill listesi dört skill'i tam açıklamalarıyla gösterdi; örnek satır: `new-feature: Use when starting any code change — new feature, bugfix, refactor, config edit — before touching a single file; … (from .claude/worktrees/software-factory/.claude/skills — applies when working on files under .claude/worktrees/software-factory/)`. Yani `>-` katlanmış description Claude Code tarafından okundu.
 - `git diff --stat` kapsam kontrolü (düzeltme commit'i): 3 dosya — `CLAUDE.md` (1 satır), `AGENTS.md` (1 satır), `new-feature/SKILL.md` (2 satır); PROOF.md ayrı commit'te; kapsam dışı dosya yok. Her değişiklik `git diff` ile okunarak doğrulandı (CLAUDE.md:5 kök tabanlı komut + "asla göreli yol"; (a) `/`→`-` ve `gh pr view <no>`; (c) `name=`'i atla notu; AGENTS.md `<dal-slug>`).
+- Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
+
+## Tur 5 (kullanıcı isteği: küçük maddeler)
+
+İnceleme: `REVIEW-4.md` — SKOR 5 / PRODUCTION_READY (ENGELLEYİCİ 0, ÖNEMLİ 0, KÜÇÜK 5). Kullanıcı kararı: "Küçük maddeleri de düzelt". Yazar: sonnet (tek alt-ajan). Her değişiklik yeni tur gerektirdiğinden PR tur boyunca taslağa çekildi.
+Aralık: `f5e5fcb..d34d850` (düzeltmeler: CLAUDE.md, new-feature/SKILL.md); bu bölüm ve Tur 4 metin düzeltmeleri bir sonraki commit'te (yalnız PROOF.md).
+
+### İddia
+- [x] REVIEW-4'ün 5 KÜÇÜK bulgusu kapatıldı (tablo aşağıda; Orkestratör doğrulaması).
+- [x] `CLAUDE.md` ve `new-feature/SKILL.md` gövdesinde `<slug>` kalmadı; tüm normatif dosyalar `<dal-slug>` kullanıyor (Test/Ölçüm satır 3–4).
+- [x] Kelime bütçeleri ve YAML geçerliliği korundu (Test/Ölçüm satır 1–2).
+
+### Bulgu → Düzeltme
+| Bulgu | Dosya | Yapılan |
+|---|---|---|
+| KÜÇÜK-1: PROOF.md Tur 4 tablosunda "blok 6 madde olarak kaldı" yanlış sayımdı (CLAUDE.md notlar bloğu 5 satırdır) | `docs/proof/software-factory/PROOF.md` (Tur 4 Bulgu → Düzeltme, ÖNEMLİ-1 satırı) | "blok 6 madde olarak kaldı" → "blok 5 madde (plan bütçesi ≤8 satır korundu)" olarak değiştirildi. |
+| KÜÇÜK-2: new-feature (a)'daki "İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır" cümlesi harfiyen okunursa ham `headRefName`'i işaret ediyordu, `/`→`-` uygulanmadığı belirtilmemişti | `.claude/skills/new-feature/SKILL.md` (madde a) | Cümleye "(`/`→`-` uygulanmış; …)" eklendi: "İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır (`/`→`-` uygulanmış; `gh pr view <no> --json headRefName`; PR numarasıyla, cwd'den bağımsız)." |
+| KÜÇÜK-3: `CLAUDE.md:5` ve `new-feature/SKILL.md` `<slug>` yazarken AGENTS.md, docs/proof/README.md ve builder-prompt.md `<dal-slug>` yazıyordu; yer tutucu yazımı dosyalar arası farklıydı | `CLAUDE.md:5`, `.claude/skills/new-feature/SKILL.md` (madde a, c, Çıkış Kapısı) | Gövdedeki tüm `<slug>` geçişleri `<dal-slug>` olarak birleştirildi (`argument-hint: "[gorev-slug]"` ve frontmatter'a dokunulmadı). |
+| KÜÇÜK-4: PROOF.md Tur 4 "Harness kanıtı" maddesi inceleyici bağlamında yeniden üretilemeyen bir gözlemi doğrulanmış gibi sunuyordu | `docs/proof/software-factory/PROOF.md` (Tur 4 Orkestratör doğrulaması) | Cümle "(orkestratör kaydı, inceleyici bağlamında yeniden üretilemez)" notuyla ve orkestratörün gördüğü örnek satırla değiştirildi. |
+| KÜÇÜK-5: PROOF.md:115 ↔ :228 çelişkili okunuyordu ("transkript dosyası yok" vs "öznenin raporu var") | `docs/proof/software-factory/PROOF.md` (## Yeniden üretme, 6. madde) | Cümlenin sonuna "Tam transkript yok; öznenin son raporu (`green4-results.md`) REVIEW-3 sonrası orkestratör tarafından kaydedildi, `## Sonuç` bölümündeki 'transkript dosyası yok' notu bu anlamdadır." eklendi. |
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `wc -w` AGENTS.md + 4 SKILL.md | ≤400 / ≤500 | 393 / 495 / 390 / 379 / 484 (yazar ve orkestratör ölçümü aynı) | 0 | PASS |
+| YAML frontmatter parse (4 dosya) | 4/4 OK | `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` | 0 | PASS |
+| `grep -n "<slug>"` CLAUDE.md, new-feature/SKILL.md (yazar) | yalnız `argument-hint` satırı (`[gorev-slug]`, farklı biçim) ya da hiç | eşleşme yok (exit 1) — `argument-hint: "[gorev-slug]"` `<slug>` kalıbını içermez | 1 | PASS |
+| `git grep -n "<slug>" -- AGENTS.md CLAUDE.md .claude/skills` (orkestratör) | 0 eşleşme | ÖNCE (f5e5fcb): 3 eşleşme — `new-feature/SKILL.md:25`, `:33`, `CLAUDE.md:5`. SONRA: çıktı yok (0 eşleşme) | 1 | PASS |
+
+### Orkestratör doğrulaması
+Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştırdı:
+
+- Test komutu tekrar çalıştırıldı:
+  - `git grep -n "<slug>" -- AGENTS.md CLAUDE.md .claude/skills` düzeltme ÖNCESİ (f5e5fcb'de) → 3 eşleşme (`new-feature/SKILL.md:25`, `:33`, `CLAUDE.md:5`); düzeltme SONRASI → 0 eşleşme.
+  - `wc -w` (5 dosya) → 393 / 495 / 390 / 379 / 484 (bütçeler içinde; new-feature 495/500).
+  - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → 4/4 (377/392/354/383, hepsi "Use when/before").
+- `git diff --stat` kapsam kontrolü (düzeltme commit'i): 2 dosya — `CLAUDE.md` (1 satır), `new-feature/SKILL.md` (3 satır: (a), (c), Çıkış Kapısı); PROOF.md ayrı commit'te; kapsam dışı dosya yok. Her değişiklik `git diff` ile okunarak doğrulandı (yalnız `<slug>` → `<dal-slug>` ve (a)'ya "`/`→`-` uygulanmış" eklentisi; başka cümle değişmedi). PROOF.md'deki üç metin düzeltmesi (KÜÇÜK-1/4/5) Read ile doğrulandı.
 - Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
 
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->
