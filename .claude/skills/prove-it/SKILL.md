@@ -20,7 +20,7 @@ Kanıt, bu turda üretilmiş, dosyaya yazılmış ve kullanıcıya gösterilmiş
 
 ## Roller
 
-Yazar (Sonnet) `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: test komutunu KENDİSİ tekrar çalıştırır, görselleri açar, `git diff --stat` ile kapsamı kontrol eder, PROOF.md'deki "Orkestratör doğrulaması" bölümünü doldurur. Alt-ajanın "başarılı" raporu tek başına kanıt sayılmaz.
+Yazar (Sonnet) `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: test komutunu KENDİSİ tekrar çalıştırır, görselleri açar, `git diff --stat` ile kapsamı, Aralık'ı kontrol eder, PROOF.md'deki "Orkestratör doğrulaması" bölümünü doldurur. Alt-ajanın "başarılı" raporu tek başına kanıt sayılmaz. **Zorunlu:** süreçler kapalı mı — rapor/PROOF/yapılandırmadaki her port: Windows `Get-NetTCPConnection -LocalPort <p> -State Listen`, Unix `lsof -i :<p>`; açıksa PID'i durdur (toplu öldürme yasak), PROOF'a yaz.
 
 ## Kanıt Türü
 
@@ -32,19 +32,19 @@ Gözlemlenebilir yüklem: değişiklik bir ekranı ya da görsel çıktıyı de�
 
 ## Görsel Kanıt Araç Sırası
 
-1. chrome-devtools `take_screenshot` — `filePath` parametresiyle doğrudan diske yazar.
-2. Claude_Browser `computer` screenshot yalnız görüntü döndürür → diske yazmak için `.claude/skills/prove-it/scripts/capture-screen.ps1 -Out <yol>` kullan.
-3. Uygulama ayakta değilse `preview_start` ya da `run` skill ile başlat.
+1. **Web sayfası:** chrome-devtools `take_screenshot` (`filePath`). Kilitliyse ("already running … --isolated") beklemeden `node .claude/skills/prove-it/scripts/capture-page.mjs --url <url> --out <yol>` (headless, yalnız sayfa; detaylar `--help`).
+2. **Masaüstü uygulaması, SON ÇARE:** `capture-screen.ps1` birincil ekranın TAMAMINI yakalar. Commit'ten önce Read ile aç; özel içerik/ilgisiz pencere varsa commit'leme, sil — yalnız temiz kırpılmış sürüm commit'lenir. Tam ekran yakalayan her yöntem (`CopyFromScreen` dahil) aynı risktedir.
+3. Uygulama ayakta değilse `preview_start`/`run`.
 
 "Önce" görüntüsü KOD DEĞİŞMEDEN alınır; alınmadıysa `main` worktree'sinde alınır; asla uydurulmaz, asla sonradan üretilmez.
 
 ## Kalıcılaştır
 
-`docs/proof/<dal-slug>/PROOF.md` (şablon: `PROOF-template.md`), görseller yanına yazılır. Orkestratör commit'ler: mesajı dosyadan (`-F`) verir, `Co-Authored-By` satırı ekler; `--amend` ve `--no-verify` yasaktır. `SendUserFile` ile kullanıcıya gösterilir (araç yoksa mutlak yol + GitHub blob linki verilir). Her yeni inceleme turu PROOF.md'ye `## Tur N` bölümü EKLER, üzerine yazmaz.
+`docs/proof/<dal-slug>/PROOF.md` (şablon: `PROOF-template.md`), görseller yanına yazılır. Orkestratör commit'ler: mesajı dosyadan (`-F`) verir, `Co-Authored-By` satırı ekler; `--amend` ve `--no-verify` yasaktır. `SendUserFile` ile kullanıcıya gösterilir (araç yoksa mutlak yol + GitHub blob linki verilir). Her yeni inceleme turu PROOF.md'ye `## Tur N` bölümü EKLER, üzerine yazmaz. Aralık/Yeniden üretme henüz var olmayan commit'e SHA ya da "çalışma ağacı" ile atıf yapmaz (`<taban-sha>..bu turun commit'i`); orkestratör görürse commit'ten önce düzeltir.
 
 ## Çıkış Kapısı
 
-PROOF.md HEAD'de; her iddianın yanında kanıt referansı var; "Orkestratör doğrulaması" dolu; kullanıcıya gösterildi → Adım 4 (`ship-it`).
+PROOF.md HEAD'de; her iddianın yanında kanıt referansı var; "Orkestratör doğrulaması" dolu (süreç/port temizliği dahil); kullanıcıya gösterildi → Adım 4 (`ship-it`).
 
 ## Yasaklar ve Bahaneler
 
@@ -52,6 +52,8 @@ PROOF.md HEAD'de; her iddianın yanında kanıt referansı var; "Orkestratör do
 |---|---|
 | "Testler az önce geçti." | Bu turda tekrar çalıştır; eski çıktı kanıt değildir. |
 | "Görsel değişiklik ufak." | Ufak da olsa ekran görüntüsü zorunludur. |
-| "Ekran görüntüsü alacak araç yok." | `capture-screen.ps1` kullan. |
+| "Ekran görüntüsü alacak araç yok." | Web: `capture-page.mjs`; masaüstü (SON ÇARE): `capture-screen.ps1`. |
+| "chrome-devtools kilitli; `CopyFromScreen` ile masaüstünü yakalarım." | Tam ekran = ilgisiz pencere + özel içerik; web için `capture-page.mjs`. |
+| "Uygulama penceresi görünüyor, kabul ettim." | Görüntünün TAMAMI denetlenir; özel içerik varsa ham görüntü commit'lenmez. |
 | "Alt-ajan başarı dedi." | Kendin çalıştır, `git diff`'e bak. |
 | "Kanıtı PR açıklamasına yazarım." | Dosyaya yaz; PR ona link verir. |
