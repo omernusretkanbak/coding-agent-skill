@@ -223,10 +223,11 @@ Orkestratör (Fable 5.1, oturum) yazar ve özne raporlarına güvenmeden kendisi
 | 2 | Fable 5.1 | 4 | 0 | 2 (1 yeni) | 6 | `REVIEW-2.md` |
 | 3 | Fable 5.1 | 4 | 0 | 1 | 4 | `REVIEW-3.md` |
 | 4 (kullanıcı onayı) | Fable 5.1 | **5** | 0 | 0 | 5 | `REVIEW-4.md` |
+| 5 (kullanıcı isteği) | Fable 5.1 | **5** | 0 | 0 | 4 | `REVIEW-5.md` |
 
-Tur 4 sonucu: **SKOR 5 / PRODUCTION_READY** → PR hazır işaretlendi, bağlantı sunuldu, merge yapılmadı (karar kullanıcının). Tur 4'ün 5 KÜÇÜK maddesi kayıtlı, düzeltilmedi (her değişiklik yeni tur gerektirir; hiçbiri kararı etkilemez).
+Tur 4 sonucu: **SKOR 5 / PRODUCTION_READY** → PR hazır işaretlendi, bağlantı sunuldu, merge yapılmadı (karar kullanıcının). Tur 4'ün 5 KÜÇÜK maddesi Tur 5'te kullanıcı isteğiyle düzeltildi (bkz. `## Tur 5`); Tur 5 sonucu yine **SKOR 5 / PRODUCTION_READY**, PR yeniden hazır işaretlendi. Tur 5'in 4 KÜÇÜK notu (kanıt metninde satır atfı, şablon doldurma yer tutucusu yazımı, boşluk biçimi) kayıtlı; normatif kuralları etkilemez.
 
-Eğilim: bulgu sayısı 11 → 8 → 5 → 5 (yalnız KÜÇÜK); ÖNEMLİ 2 → 2 → 1 → 0. Tur 3'te kalan tek ÖNEMLİ bulgu: `CLAUDE.md:5`'teki yedek komut hâlâ göreli `git worktree add ".claude/worktrees/<slug>"` (new-feature (a) "asla göreli yol" der; çelişki). Tek satırlık düzeltme; GREEN-4'te özne skill metnini izlediği için davranış doğruydu, ama metin çelişkisi duruyor.
+Eğilim: bulgu sayısı 11 → 8 → 5 → 5 → 4 (Tur 4'ten itibaren yalnız KÜÇÜK); ÖNEMLİ 2 → 2 → 1 → 0 → 0. Tur 3'te kalan tek ÖNEMLİ bulgu: `CLAUDE.md:5`'teki yedek komut hâlâ göreli `git worktree add ".claude/worktrees/<slug>"` (new-feature (a) "asla göreli yol" der; çelişki). Tek satırlık düzeltme; GREEN-4'te özne skill metnini izlediği için davranış doğruydu, ama metin çelişkisi duruyor.
 
 AGENTS.md Döngü Kuralı ("En fazla 3 tur; hâlâ 5 değilse son kararla kullanıcıya eskalasyon") gereği otomatik döngü burada durduruldu; PR taslak, merge yapılmadı. Karar kullanıcının. Not (KÜÇÜK-4): GREEN-4 öznesinin cwd'si `git -C` ile simüle edildi; transkript dosyası yok, alıntılar orkestratör kaydıdır; `green4-setup.sh` scratchpad'dedir, commit'lenmemiştir.
 
