@@ -284,7 +284,7 @@ Aralık: `f5e5fcb..d34d850` (düzeltmeler: CLAUDE.md, new-feature/SKILL.md); bu 
 | KÜÇÜK-2: new-feature (a)'daki "İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır" cümlesi harfiyen okunursa ham `headRefName`'i işaret ediyordu, `/`→`-` uygulanmadığı belirtilmemişti | `.claude/skills/new-feature/SKILL.md` (madde a) | Cümleye "(`/`→`-` uygulanmış; …)" eklendi: "İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır (`/`→`-` uygulanmış; `gh pr view <no> --json headRefName`; PR numarasıyla, cwd'den bağımsız)." |
 | KÜÇÜK-3: `CLAUDE.md:5` ve `new-feature/SKILL.md` `<slug>` yazarken AGENTS.md, docs/proof/README.md ve builder-prompt.md `<dal-slug>` yazıyordu; yer tutucu yazımı dosyalar arası farklıydı | `CLAUDE.md:5`, `.claude/skills/new-feature/SKILL.md` (madde a, c, Çıkış Kapısı) | Gövdedeki tüm `<slug>` geçişleri `<dal-slug>` olarak birleştirildi (`argument-hint: "[gorev-slug]"` ve frontmatter'a dokunulmadı). |
 | KÜÇÜK-4: PROOF.md Tur 4 "Harness kanıtı" maddesi inceleyici bağlamında yeniden üretilemeyen bir gözlemi doğrulanmış gibi sunuyordu | `docs/proof/software-factory/PROOF.md` (Tur 4 Orkestratör doğrulaması) | Cümle "(orkestratör kaydı, inceleyici bağlamında yeniden üretilemez)" notuyla ve orkestratörün gördüğü örnek satırla değiştirildi. |
-| KÜÇÜK-5: PROOF.md:115 ↔ :228 çelişkili okunuyordu ("transkript dosyası yok" vs "öznenin raporu var") | `docs/proof/software-factory/PROOF.md` (## Yeniden üretme, 6. madde) | Cümlenin sonuna "Tam transkript yok; öznenin son raporu (`green4-results.md`) REVIEW-3 sonrası orkestratör tarafından kaydedildi, `## Sonuç` bölümündeki 'transkript dosyası yok' notu bu anlamdadır." eklendi. |
+| KÜÇÜK-5: PROOF.md `## Yeniden üretme` 6. madde ↔ `## Sonuç` transkript notu çelişkili okunuyordu (REVIEW-4'te :115 ↔ :228; satır numaraları sonraki düzenlemelerle kaydı) ("transkript dosyası yok" vs "öznenin raporu var") | `docs/proof/software-factory/PROOF.md` (## Yeniden üretme, 6. madde) | Cümlenin sonuna "Tam transkript yok; öznenin son raporu (`green4-results.md`) REVIEW-3 sonrası orkestratör tarafından kaydedildi, `## Sonuç` bölümündeki 'transkript dosyası yok' notu bu anlamdadır." eklendi. |
 
 ### Test / Ölçüm
 | Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
@@ -302,6 +302,42 @@ Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştır
   - `wc -w` (5 dosya) → 393 / 495 / 390 / 379 / 484 (bütçeler içinde; new-feature 495/500).
   - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → 4/4 (377/392/354/383, hepsi "Use when/before").
 - `git diff --stat` kapsam kontrolü (düzeltme commit'i): 2 dosya — `CLAUDE.md` (1 satır), `new-feature/SKILL.md` (3 satır: (a), (c), Çıkış Kapısı); PROOF.md ayrı commit'te; kapsam dışı dosya yok. Her değişiklik `git diff` ile okunarak doğrulandı (yalnız `<slug>` → `<dal-slug>` ve (a)'ya "`/`→`-` uygulanmış" eklentisi; başka cümle değişmedi). PROOF.md'deki üç metin düzeltmesi (KÜÇÜK-1/4/5) Read ile doğrulandı.
+- Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
+
+## Tur 6 (kullanıcı isteği: kalan notlar)
+
+İnceleme: `REVIEW-5.md` — SKOR 5 / PRODUCTION_READY (ENGELLEYİCİ 0, ÖNEMLİ 0, KÜÇÜK 4). Kullanıcı kararı: "Kalan küçük notları da düzelt". Yazar: sonnet (tek alt-ajan). PR tur boyunca taslağa çekildi.
+Aralık: `5b8299b..146ca34` (düzeltmeler: new-feature/SKILL.md, reviewer-prompt.md, PROOF-template.md); bu bölüm bir sonraki commit'te (yalnız PROOF.md).
+
+### İddia
+- [x] REVIEW-5'in 4 KÜÇÜK notu kapatıldı (KÜÇÜK-1 Tur 5 kayıt commit'inde önceden; tablo aşağıda).
+- [x] Üç şablon (`builder-prompt.md`, `reviewer-prompt.md`, `PROOF-template.md`) kanıt dizini için tek doldurma yer tutucusu (`{DAL_SLUG}`) kullanıyor; `{SLUG}` ve `{dal-slug}` kalmadı (Test/Ölçüm satır 3–4).
+- [x] Kelime bütçeleri ve YAML geçerliliği korundu (Test/Ölçüm satır 1–2).
+
+### Bulgu → Düzeltme
+| Bulgu | Dosya | Yapılan |
+|---|---|---|
+| KÜÇÜK-1: `## Sonuç` özetindeki "Tur 4'ün 5 KÜÇÜK maddesi kayıtlı, düzeltilmedi" cümlesi Tur 5'te düzeltmeyi yansıtmıyordu | `docs/proof/software-factory/PROOF.md` (## Sonuç (Tur 3 sonu — döngü sınırı)) | Tur 5 kayıt commit'inde (`5b8299b`) önceden düzeltilmiş: "Tur 4'ün 5 KÜÇÜK maddesi Tur 5'te kullanıcı isteğiyle düzeltildi (bkz. `## Tur 5`)" — bu turda yalnız doğrulandı, değişiklik yapılmadı. |
+| KÜÇÜK-2: Tur 5 "Bulgu → Düzeltme" tablosundaki KÜÇÜK-5 satırı eski satır numaralarıyla (`:115` ↔ `:228`) atıf yapıyordu, sonraki düzenlemelerle kaymıştı | `docs/proof/software-factory/PROOF.md` (## Tur 5, Bulgu → Düzeltme tablosu) | Satır numarası atfı bölüm adına çevrildi: "PROOF.md `## Yeniden üretme` 6. madde ↔ `## Sonuç` transkript notu çelişkili okunuyordu (REVIEW-4'te :115 ↔ :228; satır numaraları sonraki düzenlemelerle kaydı)". |
+| KÜÇÜK-3: Üç şablon (`reviewer-prompt.md` `{SLUG}`, `builder-prompt.md` `{DAL_SLUG}`, `PROOF-template.md` `{dal-slug}`) aynı kanıt dizinini üç farklı doldurma yer tutucusuyla adlandırıyordu | `.claude/skills/ship-it/reviewer-prompt.md`, `.claude/skills/prove-it/PROOF-template.md` | `reviewer-prompt.md`: "Kanıt dosyası" bölümündeki `{SLUG}` → `{DAL_SLUG}`; başa `builder-prompt.md:2–3` biçiminde iki yer tutucu yorum satırı eklendi. `PROOF-template.md`: başlık satırı `{dal-slug}` → `{DAL_SLUG}`; kullanım yorumundaki normatif `<dal-slug>` yazımına dokunulmadı. |
+| KÜÇÜK-4: `new-feature/SKILL.md` (a)'daki "(`/`→`-` uygulanmış; …)" cümlesi aynı satırdaki "(`/` → `-` uygulanmış)" ile boşluk biçiminde tutarsızdı | `.claude/skills/new-feature/SKILL.md` (madde a) | "(`/`→`-` uygulanmış;" → "(`/` → `-` uygulanmış;" (iki boşluk eklendi); kelime sayısı 495 → 496 (`wc -w`; ≤500). |
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `wc -w` AGENTS.md + 4 SKILL.md | ≤400 / ≤500 | 393 / 496 / 390 / 379 / 484 (yazar ve orkestratör ölçümü aynı) | 0 | PASS |
+| YAML frontmatter parse (4 dosya) | 4/4 OK | `new-feature 377 'Use when '`, `code-structure 392 'Use when '`, `prove-it 354 'Use befor'`, `ship-it 383 'Use when '` | 0 | PASS |
+| `grep` `{SLUG}` / `{dal-slug}` in .claude/skills (yazar) | 0 eşleşme | ikisi de 0 eşleşme (exit 1) | 1 | PASS |
+| `git grep -n -e "{SLUG}" -e "{dal-slug}" -e "{DAL_SLUG}" -- .claude/skills` (orkestratör) | yalnız `{DAL_SLUG}` | ÖNCE (5b8299b): `builder-prompt.md` `{DAL_SLUG}` ×2, `PROOF-template.md` `{dal-slug}`, `reviewer-prompt.md` `{SLUG}`. SONRA: yalnız `{DAL_SLUG}` — `builder-prompt.md` ×2, `PROOF-template.md` ×1, `reviewer-prompt.md` ×2 (yer tutucu listesi + Kanıt dosyası yolu) | 0 | PASS |
+
+### Orkestratör doğrulaması
+Orkestratör (Fable 5.1, oturum) yazar raporuna güvenmeden kendisi çalıştırdı:
+
+- Test komutu tekrar çalıştırıldı:
+  - `git grep -n -e "{SLUG}" -e "{dal-slug}" -e "{DAL_SLUG}" -- .claude/skills` düzeltme ÖNCESİ (5b8299b'de) → üç farklı yazım; düzeltme SONRASI → yalnız `{DAL_SLUG}`, 5 geçiş, 3 dosya.
+  - `wc -w` (5 dosya) → 393 / 496 / 390 / 379 / 484 (bütçeler içinde). Not: yazarın Bulgu → Düzeltme satırındaki "497" tahmini gerçek ölçümle (496) düzeltildi.
+  - `python -c "yaml.safe_load(frontmatter)"` (4 SKILL.md) → 4/4 (377/392/354/383, hepsi "Use when/before").
+- `git diff --stat` kapsam kontrolü (düzeltme commit'i): 3 dosya — `new-feature/SKILL.md` (1 satır, yalnız iki boşluk), `reviewer-prompt.md` (+2 yorum satırı, 1 yer tutucu), `PROOF-template.md` (1 satır); PROOF.md ayrı commit'te; kapsam dışı dosya yok. Her değişiklik `git diff` ile okunarak doğrulandı; `PROOF-template.md` 1. satırdaki normatif `<dal-slug>` yazımı korunmuş. KÜÇÜK-1'in Tur 5 kayıt commit'inde (`5b8299b`) kapatıldığı `## Sonuç` metni Read ile doğrulandı.
 - Görseller açıldı / eşleşti: uygulanamaz (UI değişikliği yok).
 
 <!-- Sonraki inceleme turlarında buraya "## Tur N" bölümü eklenir: İddia / Önce / Sonra / Test / Orkestratör doğrulaması aynı düzenle. -->
