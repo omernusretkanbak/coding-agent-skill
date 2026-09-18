@@ -1,6 +1,6 @@
 <!-- Kullanım: bu şablonu docs/proof/<dal-slug>/PROOF.md olarak kopyala ve doldur. -->
 
-# KANIT — {dal-slug}
+# KANIT — {DAL_SLUG}
 
 | Görev | Tür | Aralık | Tur | Yazar modeli |
 |---|---|---|---|---|

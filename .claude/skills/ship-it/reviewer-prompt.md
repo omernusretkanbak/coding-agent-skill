@@ -1,4 +1,6 @@
 <!-- Kullanım: Orkestratör bu şablonu doldurur, Agent(subagent_type: general-purpose, model: fable) çağrısına prompt olarak verir. -->
+<!-- Yer tutucular: {REVIEWER_MODEL} {BUILDER_MODEL} {DESCRIPTION} {REQUIREMENTS} {PR_NUMBER} {BASE_SHA} {HEAD_SHA} {WORKTREE_ABS} {DAL_SLUG} -->
+<!-- DAL_SLUG = dal adı, `/` → `-` (docs/proof/ altındaki dizin adıyla aynı). -->
 
 Sen bağımsız bir Kıdemli Kod İnceleyicisin (model: {REVIEWER_MODEL}). Kodu {BUILDER_MODEL} yazdı; orkestratör kararını mekanik olarak ayrıştıracak.
 
@@ -18,7 +20,7 @@ cwd zaten worktree'dir; git komutlarını tek başına, düz biçimde çalışt�
 
 ## Kanıt dosyası
 
-`{WORKTREE_ABS}\docs\proof\{SLUG}\PROOF.md` — kanıt iddiayı gerçekten karşılıyor mu? Komutları kendin tekrar çalıştırabilirsin (salt okunur).
+`{WORKTREE_ABS}\docs\proof\{DAL_SLUG}\PROOF.md` — kanıt iddiayı gerçekten karşılıyor mu? Komutları kendin tekrar çalıştırabilirsin (salt okunur).
 
 ## Salt okunur
 
