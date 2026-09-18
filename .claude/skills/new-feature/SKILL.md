@@ -20,9 +20,9 @@ argument-hint: "[gorev-slug]"
 
 ## Adımlar
 
-(a) **Tespit et**: `git branch --show-current`; `git rev-parse --git-dir` ile `--git-common-dir` çıktısını karşılaştır. Farklıysa zaten bir worktree'desin — ama hangi görevin? Dal adı (`/` → `-` uygulanmış) bu görevin slug'ıyla aynıysa Hat Adımı 2'ye (`code-structure`) geç. İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır (`gh pr view <no> --json headRefName`; PR numarasıyla, cwd'den bağımsız). Farklıysa bu başka bir görevin worktree'sidir: madde (c) ile kök altında YENİ worktree aç (asla göreli yol; aksi hâlde iç içe worktree oluşur).
+(a) **Tespit et**: `git branch --show-current`; `git rev-parse --git-dir` ile `--git-common-dir` çıktısını karşılaştır. Farklıysa zaten bir worktree'desin — ama hangi görevin? Dal adı (`/` → `-` uygulanmış) bu görevin slug'ıyla aynıysa Hat Adımı 2'ye (`code-structure`) geç. İnceleme turunda görev slug'ı, ilgili PR'ın dal adıdır (`/`→`-` uygulanmış; `gh pr view <no> --json headRefName`; PR numarasıyla, cwd'den bağımsız). Farklıysa bu başka bir görevin worktree'sidir: madde (c) ile kök altında YENİ worktree aç (asla göreli yol; aksi hâlde iç içe worktree oluşur).
 (b) **Kirli ağacı yakala**: `git status --porcelain` boş değilse DUR; kullanıcıya sor (mevcut değişiklikler commit'lensin mi, WIP commit mi atılsın). Bare `git stash` KULLANMA — stash yığını tüm worktree'lerle ortaktır.
-(c) **İzole et**: Kök: `git rev-parse --path-format=absolute --git-common-dir` → `<kök>/.git`; kök onun üst dizinidir (PowerShell: `$root = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir)`; bash: `root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")`). Native araç varsa ve henüz bir worktree'de değilsen `EnterWorktree name=<slug>` çağır (dizin `<kök>/.claude/worktrees/<slug>` olur); zaten bir worktree'deysen `name=`'i atla, doğrudan `git worktree add`'e geç (araç worktree içinden yeni worktree açmaz). Araç yoksa ya da reddederse: önce `git check-ignore -q .claude/worktrees/` ile desen kontrolünü doğrula (not: `.gitignore` her worktree'de aynıdır), sonra `git worktree add "<kök>/.claude/worktrees/<slug>" -b <slug> origin/main` çalıştır; ardından `EnterWorktree path="<kök>/.claude/worktrees/<slug>"` ile oturumu o dizine taşı.
+(c) **İzole et**: Kök: `git rev-parse --path-format=absolute --git-common-dir` → `<kök>/.git`; kök onun üst dizinidir (PowerShell: `$root = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir)`; bash: `root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")`). Native araç varsa ve henüz bir worktree'de değilsen `EnterWorktree name=<dal-slug>` çağır (dizin `<kök>/.claude/worktrees/<dal-slug>` olur); zaten bir worktree'deysen `name=`'i atla, doğrudan `git worktree add`'e geç (araç worktree içinden yeni worktree açmaz). Araç yoksa ya da reddederse: önce `git check-ignore -q .claude/worktrees/` ile desen kontrolünü doğrula (not: `.gitignore` her worktree'de aynıdır), sonra `git worktree add "<kök>/.claude/worktrees/<dal-slug>" -b <dal-slug> origin/main` çalıştır; ardından `EnterWorktree path="<kök>/.claude/worktrees/<dal-slug>"` ile oturumu o dizine taşı.
 (d) **Temel doğrulama**: `package.json`/`pyproject.toml`/`requirements.txt` varsa bağımlılıkları kur, ardından baseline testi koş. Başarısızsa sonucu raporla ve kullanıcıya sor; sessizce geçme.
 (e) **Raporla**: worktree'nin mutlak yolu, dal adı, baseline test sonucu, "Hat Adımı 2'ye hazır" notu.
 
@@ -30,7 +30,7 @@ argument-hint: "[gorev-slug]"
 
 ## Çıkış Kapısı
 
-`git branch --show-current` çıktısı `main` DEĞİL; dal adı (`/` → `-` uygulanmış) = görev slug'ı; cwd `<kök>/.claude/worktrees/<slug>` içinde. (c)'de `EnterWorktree` sonrası dal adını `git branch --show-current` ile oku, slug'ı ondan türet.
+`git branch --show-current` çıktısı `main` DEĞİL; dal adı (`/` → `-` uygulanmış) = görev slug'ı; cwd `<kök>/.claude/worktrees/<dal-slug>` içinde. (c)'de `EnterWorktree` sonrası dal adını `git branch --show-current` ile oku, slug'ı ondan türet.
 
 ## Yasaklar ve Bahaneler
 
