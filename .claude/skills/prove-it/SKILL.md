@@ -20,7 +20,7 @@ Kanıt, bu turda üretilip dosyaya yazılmış, kullanıcıya gösterilmiş çı
 
 ## Roller
 
-Yazar (Sonnet) `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: testi tekrar çalıştırır; kanıttaki TÜM görselleri adıyla açıp listeler, iddia bölgesini `node .claude/skills/prove-it/scripts/capture-page.mjs --zoom-image <png> --region x,y,w,h --out <kırpıntı>` ile kırpıp büyütür (scratch'e; adı PROOF'a); `git diff --stat`/Aralığı kontrol eder, "Orkestratör doğrulaması"nı doldurur. Alt-ajan raporu tek başına kanıt sayılmaz. **Zorunlu:** süreçler kapalı mı — rapor/PROOF/yapılandırmadaki her port: Windows `Get-NetTCPConnection -LocalPort <p> -State Listen`, Unix `lsof -i :<p>`; açıksa PID'i durdur (toplu öldürme yasak), PROOF'a yaz.
+Yazar (Sonnet) `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: testi tekrar çalıştırır; kanıttaki TÜM görselleri adıyla açıp listeler, her görsel iddianın bölgesini `node .claude/skills/prove-it/scripts/capture-page.mjs --zoom-image <png> --region x,y,w,h --out <kırpıntı>` ile kırpıp DOĞRU/YANLIŞ işaretler (scratch'e; adı/bölgesi PROOF'a); `git diff --stat`/Aralığı kontrol eder, "Orkestratör doğrulaması"nı doldurur. Alt-ajan raporu kanıt sayılmaz. **Zorunlu:** süreçler kapalı mı — rapor/PROOF/yapılandırmadaki her port: Windows `Get-NetTCPConnection -LocalPort <p> -State Listen`, Unix `lsof -i :<p>`; açıksa PID'i durdur (toplu öldürme yasak), PROOF'a yaz.
 
 ## Kanıt Türü
 
@@ -32,15 +32,15 @@ Gözlemlenebilir yüklem: değişiklik ekranı/görsel çıktıyı değiştiriyo
 
 ## Görsel Kanıt Araç Sırası
 
-1. **Web sayfası:** chrome-devtools `take_screenshot` (`filePath`). Kilitliyse ("already running … --isolated") beklemeden `node .claude/skills/prove-it/scripts/capture-page.mjs --url <url> --out <yol>` (headless, yalnız sayfa; `--help`).
-2. **Masaüstü uygulaması, SON ÇARE:** `capture-screen.ps1` birincil ekranın TAMAMINI yakalar. Commit'ten önce Read ile aç; özel içerik/ilgisiz pencere varsa sil — yalnız kırpılmış sürüm commit'lenir. Diğer tam ekran yöntemleri (`CopyFromScreen` dahil) aynı risktedir.
+1. **Web sayfası:** chrome-devtools `take_screenshot` (`filePath`). Kilitliyse ("already running … --isolated") beklemeden `node .claude/skills/prove-it/scripts/capture-page.mjs --url <url> --out <yol>` (headless, sayfa; `--help`).
+2. **Masaüstü uygulaması, SON ÇARE:** `capture-screen.ps1` birincil ekranın TAMAMINI yakalar. Commit'ten önce Read ile aç; özel içerik/ilgisiz pencere varsa sil — yalnız kırpılmış sürüm commit'lenir. Diğer tam ekran yöntemleri aynı risktedir.
 3. Uygulama ayakta değilse `preview_start`/`run`.
 
 "Önce" görüntüsü KOD DEĞİŞMEDEN alınır (yoksa `main` worktree'sinde); asla uydurulmaz/sonradan üretilmez.
 
 ## Kalıcılaştır
 
-`docs/proof/<dal-slug>/PROOF.md` (şablon `PROOF-template.md`), görseller yanına yazılır; commit mesajı `-F` ile dosyadan, `Co-Authored-By` ekler, `--amend`/`--no-verify` yasak; `SendUserFile` ile gösterilir (yoksa mutlak yol + GitHub linki); yeni tur `## Tur N` EKLER, üzerine yazmaz; Aralık/Yeniden üretme var olmayan commit'e SHA/"çalışma ağacı" atıf yapmaz (`<taban-sha>..bu turun commit'i`), orkestratör görürse önce düzeltir.
+`docs/proof/<dal-slug>/PROOF.md` (şablon `PROOF-template.md`), görseller yanına yazılır; Orkestratör commit mesajını `-F` ile dosyadan verir, `Co-Authored-By` ekler, `--amend`/`--no-verify` yasak; `SendUserFile` ile gösterilir (yoksa mutlak yol/GitHub linki); yeni tur `## Tur N` EKLER, üzerine yazmaz; Aralık/Yeniden üretme var olmayan commit'e SHA/"çalışma ağacı" atıf yapmaz (`<taban-sha>..bu turun commit'i`), orkestratör görürse önce düzeltir.
 
 ## Çıkış Kapısı
 
@@ -58,4 +58,4 @@ PROOF.md HEAD'de; her iddia kanıt referanslı; "Orkestratör doğrulaması" dol
 | "Alt-ajan başarı dedi." | Kendin çalıştır, `git diff`'e bak. |
 | "Kanıtı PR açıklamasına yazarım." | Dosyaya yaz; PR ona link verir. |
 | "Görsellerin çoğuna baktım, diğeri de aynıdır." | Atlanan görsel farkı gizleyebilir; HER görsel açılır. |
-| "Görseli açtım, düğme normal görünüyor." | Kırpıntı (`--zoom-image`) yoksa "normal" denmez. |
+| "Görseli açtım, düğme normal görünüyor." | O iddianın bölgesinin kırpıntısı yoksa "normal" denmez. |

@@ -20,12 +20,19 @@
 // incelemede iddia edilen küçük bir bölgeyi (ör. bir düğmenin metni) kırpıp
 // büyütür — pilot-dersleri-2 B: "görseli açtım, normal görünüyor" gibi
 // yüzeysel bakışları önlemek için TEK adımlık bir araç. Yeni bağımlılık
-// EKLEMEZ: yerel PNG'yi base64 gömen küçük bir `data:text/html` sayfası
-// üretir (`image-rendering: pixelated`, bölgeyi `scale` kat büyüten mutlak
-// konumlandırma) ve bu sayfayı MEVCUT navigate/capture/temizlik hattıyla
-// (aynı `run()`, aynı tek global `--timeout-ms` deadline'ı) yakalar —
-// yalnızca `args.url`/`args.width`/`args.height` bu moda özgü değerlerle
-// değiştirilir.
+// EKLEMEZ: `run()` içinde koşuya özgü `profileDir`'e kaynak PNG'nin bir
+// kopyasını (`zoom-source.png`) ve onu GÖRECELİ yoldan referans alan küçük
+// bir HTML sayfasını (`zoom.html`) yazıp `file://` ile gezer
+// (`image-rendering: pixelated`, bölgeyi `scale` kat büyüten mutlak
+// konumlandırma). ÖNCEKİ sürüm PNG'yi base64 gömüp
+// `data:text/html;base64,…` URL'i olarak gezinirdi; kaynak ~1,2 MB'ı aşınca
+// Chromium'un `Page.navigate` için uyguladığı ~2 MB URL sınırını aşıp
+// `net::ERR_ABORTED` veriyordu (REVIEW-1 ONEMLI-2) — `file://` yolunda URL
+// uzunluğu kaynak boyutundan bağımsızdır. Aynı MEVCUT
+// navigate/capture/temizlik hattını (aynı `run()`, aynı tek global
+// `--timeout-ms` deadline'ı) kullanır — yalnızca `args.url`/`args.width`/
+// `args.height` bu moda özgü değerlerle değiştirilir; `zoom.html` ve
+// `zoom-source.png` profil dizini ile birlikte otomatik temizlenir.
 //
 // Çıkış kodları: 0 başarı, 1 çalışma hatası (ör. erişilemeyen URL),
 //                2 kullanım hatası / tarayıcı bulunamadı.
@@ -152,6 +159,7 @@ function parseArgs(argv) {
     zoomImage: null,
     region: null,
     scale: 4,
+    scaleExplicit: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -202,6 +210,7 @@ function parseArgs(argv) {
         break;
       case '--scale':
         args.scale = parseScale(requireValue(argv, ++i, '--scale'));
+        args.scaleExplicit = true;
         break;
       default:
         throw new Error(`Bilinmeyen parametre: ${arg}`);
@@ -244,51 +253,96 @@ function findBrowser(explicit) {
   return null;
 }
 
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+// REVIEW-1 KUCUK-1: önceden imza/IHDR kontrolü yoktu — 40x40'lık "kırık
+// görsel" simgesini SESSİZCE üretip çıkış 0 veren (SAHTE BAŞARI) ya da
+// RangeError ile çöken girdiler vardı. 8 baytlık PNG imzası + ilk chunk'ın
+// `IHDR` olup olmadığı burada kontrol edilir; geçersizse (--zoom-image
+// yolunda) tarayıcı hiç AÇILMADAN, açık bir mesajla hata fırlatılır.
 function pngDims(buf) {
+  if (buf.length < 24) {
+    throw new Error(`geçersiz PNG: dosya çok kısa (${buf.length} B, en az 24 B gerekli)`);
+  }
+  if (!buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error('geçersiz PNG: 8 baytlık PNG imzası eşleşmiyor');
+  }
+  if (buf.toString('ascii', 12, 16) !== 'IHDR') {
+    throw new Error(`geçersiz PNG: ilk chunk IHDR değil (bulunan: ${buf.toString('ascii', 12, 16)})`);
+  }
   const width = buf.readUInt32BE(16);
   const height = buf.readUInt32BE(20);
   return { width, height };
 }
 
-// Yakınlaştırma modu: yerel PNG'yi base64 gömen küçük bir `data:text/html`
-// sayfası üretir. `#v` (viewport) TAM `w*scale × h*scale` piksel; `<img>`
-// kaynak görseli `scale` kat büyütülmüş boyutuyla mutlak konumlandırılıp
-// `(-x*scale, -y*scale)` kaydırılır, `#v`'nin `overflow:hidden`'ı geri kalanı
-// kırpar — sonuç, istenen bölgenin `scale` kat büyütülmüş hâlidir.
-// `image-rendering: pixelated` bulanıklaştırmadan (nearest-neighbor) büyütür.
-function buildZoomDataUrl(buf, region, scale) {
-  const { width: imgWidth, height: imgHeight } = pngDims(buf);
+// Yalnız SÖZ DİZİMİNİ değil, GERÇEK görsel sınırlarını da doğrular (region
+// belirtilmemişse görselin tamamı).
+function resolveZoomRegion(imgWidth, imgHeight, region) {
   const { x, y, w, h } = region ?? { x: 0, y: 0, w: imgWidth, h: imgHeight };
   if (x + w > imgWidth || y + h > imgHeight) {
     throw new Error(
       `--region görsel sınırlarının dışına taşıyor: bölge (${x},${y},${w},${h}), görsel ${imgWidth}x${imgHeight}`,
     );
   }
+  return { x, y, w, h };
+}
+
+// Yakınlaştırma modu HTML'i: kaynak PNG'yi GÖRECELİ bir yoldan (`imgSrcRelPath`,
+// aynı dizindeki `zoom-source.png`) referans alır — base64 GÖMMEZ (REVIEW-1
+// ONEMLI-2, bkz. dosya başı yorumu). `#v` (viewport) TAM `w*scale × h*scale`
+// piksel; `<img>` kaynak görseli `scale` kat büyütülmüş boyutuyla mutlak
+// konumlandırılıp `(-x*scale, -y*scale)` kaydırılır, `#v`'nin
+// `overflow:hidden`'ı geri kalanı kırpar — sonuç, istenen bölgenin `scale`
+// kat büyütülmüş hâlidir. `image-rendering: pixelated` bulanıklaştırmadan
+// (nearest-neighbor) büyütür.
+function buildZoomHtml(region, scale, imgSrcRelPath, imgWidth, imgHeight) {
+  const { x, y, w, h } = region;
   const outW = w * scale;
   const outH = h * scale;
-  const b64 = buf.toString('base64');
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;padding:0;overflow:hidden;background:#000;}
 #v{position:relative;width:${outW}px;height:${outH}px;overflow:hidden;}
 #v img{position:absolute;left:${-x * scale}px;top:${-y * scale}px;width:${imgWidth * scale}px;height:${imgHeight * scale}px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;}
-</style></head><body><div id="v"><img src="data:image/png;base64,${b64}"></div></body></html>`;
-  const dataUrl = `data:text/html;base64,${Buffer.from(html, 'utf8').toString('base64')}`;
-  return { url: dataUrl, width: outW, height: outH };
+</style></head><body><div id="v"><img src="${imgSrcRelPath}"></div></body></html>`;
 }
 
-// Girişleri okur/doğrular (dosya var mı, region görsel sınırları içinde mi)
-// ve zoom modu için `args.url`/`args.width`/`args.height`'i, MEVCUT
-// navigate/capture/temizlik hattı (`run()`) hiç değişmeden yeniden
-// kullanılabilecek şekilde üretir.
+// Girişleri okur/doğrular (dosya var mı, geçerli bir PNG mi, region görsel
+// sınırları içinde mi) ve zoom modu için gereken değerleri `args` üzerine
+// yazar. Asıl `zoom-source.png`/`zoom.html` dosyaları `run()` içinde,
+// koşuya özgü `profileDir` VAR OLDUKTAN SONRA yazılır (bkz. `run()`) —
+// burada yalnız doğrulama yapılır, hiçbir dosya yazılmaz, tarayıcı açılmaz.
 function prepareZoom(args) {
   if (!existsSync(args.zoomImage)) {
     throw new Error(`--zoom-image bulunamadı: ${args.zoomImage}`);
   }
   const buf = readFileSync(args.zoomImage);
-  const zoom = buildZoomDataUrl(buf, args.region, args.scale);
-  args.url = zoom.url;
-  args.width = zoom.width;
-  args.height = zoom.height;
+  const { width: imgWidth, height: imgHeight } = pngDims(buf);
+  const region = resolveZoomRegion(imgWidth, imgHeight, args.region);
+  args.zoomMode = true;
+  args.zoomBuf = buf;
+  args.zoomRegion = region;
+  args.zoomScale = args.scale;
+  args.zoomImgWidth = imgWidth;
+  args.zoomImgHeight = imgHeight;
+  args.width = region.w * args.scale;
+  args.height = region.h * args.scale;
+}
+
+// Hata iletisinde URL'yi kısaltır: `data:` URL'ler MEGABAYT boyutunda
+// olabilir (ör. --zoom-image'ın ESKİ base64-gömme yöntemi, REVIEW-1
+// ONEMLI-2) ve tam haliyle stderr'e yazılırsa çıktıyı boğar; yalnız şema
+// (ilk virgüle kadar) + toplam uzunluk yazılır. Diğer URL'ler 80 karakterden
+// uzunsa kısaltılır.
+function formatUrlForError(url) {
+  if (url.startsWith('data:')) {
+    const comma = url.indexOf(',');
+    const scheme = comma === -1 ? url : url.slice(0, comma);
+    return `${scheme},… (toplam uzunluk: ${url.length} B)`;
+  }
+  if (url.length > 80) {
+    return `${url.slice(0, 80)}…`;
+  }
+  return url;
 }
 
 function describeException(exceptionDetails) {
@@ -616,6 +670,27 @@ async function run(args, browserPath) {
   };
 
   try {
+    // REVIEW-1 ONEMLI-2: zoom dosyaları burada, `profileDir` VAR OLDUKTAN
+    // SONRA yazılır — `zoom-source.png` (kaynak PNG kopyası) ve onu
+    // GÖRECELİ yoldan referans alan `zoom.html`; ikisi de profil dizini
+    // silinirken (cleanupResources → removeProfileDir) otomatik temizlenir.
+    // `file://` ile gezinildiği için URL uzunluğu kaynak PNG boyutundan
+    // bağımsızdır (ESKİ base64 `data:` gömme yöntemindeki ~2 MB URL sınırı
+    // artık yok).
+    if (args.zoomMode) {
+      writeFileSync(path.join(profileDir, 'zoom-source.png'), args.zoomBuf);
+      const zoomHtml = buildZoomHtml(
+        args.zoomRegion,
+        args.zoomScale,
+        'zoom-source.png',
+        args.zoomImgWidth,
+        args.zoomImgHeight,
+      );
+      const zoomHtmlPath = path.join(profileDir, 'zoom.html');
+      writeFileSync(zoomHtmlPath, zoomHtml);
+      args.url = pathToFileURL(zoomHtmlPath).href;
+    }
+
     state.child = spawnBrowser(browserPath, profileDir);
     state.child.on('error', () => {
       // Süreç başlatma hatası waitForDevToolsActivePort zaman aşımıyla yakalanır.
@@ -658,7 +733,7 @@ async function run(args, browserPath) {
     const navResult = await cdp.send('Page.navigate', { url: args.url });
     if (navResult.errorText) {
       loadEventPromise.cancel();
-      throw new Error(`Sayfa yüklenemedi: ${navResult.errorText} (${args.url})`);
+      throw new Error(`Sayfa yüklenemedi: ${navResult.errorText} (${formatUrlForError(args.url)})`);
     }
     await loadEventPromise;
 
@@ -670,7 +745,13 @@ async function run(args, browserPath) {
       if (setupResult.exceptionDetails) {
         throw new Error(`--setup hata: ${describeException(setupResult.exceptionDetails)}`);
       }
+      // KUCUK-4 (REVIEW-1): loadEventPromise'daki gibi, reddedilirse
+      // unhandledRejection olmasın diye erkenden .catch() bağlanır — reload
+      // ve loadEventFired aynı deadline'a bağlı olduğundan ikisi aynı anda
+      // zaman aşımına düşebilir; ikinci reddi yakalayan olmazsa süreç
+      // cleanupResources() bitmeden ölebilir (yetim riski).
       const reloadEventPromise = cdp.waitForEvent('Page.loadEventFired');
+      reloadEventPromise.catch(() => {});
       await cdp.send('Page.reload', {});
       await reloadEventPromise;
     }
@@ -742,6 +823,16 @@ async function main() {
 
   if (args.zoomImage && args.url) {
     console.error('Hata: --zoom-image ve --url BİRLİKTE verilemez');
+    console.error(HELP);
+    process.exit(2);
+  }
+
+  // REVIEW-1 KUCUK-2: --region/--scale yalnız --zoom-image ile ANLAMLIDIR;
+  // önceden --url moduyla verildiğinde sessizce YUTULUYORDU (denendi: --url
+  // about:blank --region 0,0,10,10 --scale 2 → çıkış 0, 50x40 — kullanıcı
+  // bölgenin uygulandığını sanabilirdi). Artık kullanım hatası.
+  if (!args.zoomImage && (args.region || args.scaleExplicit)) {
+    console.error('Hata: --region/--scale yalnız --zoom-image ile birlikte kullanılabilir');
     console.error(HELP);
     process.exit(2);
   }

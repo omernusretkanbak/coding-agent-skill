@@ -277,3 +277,164 @@ Koşu 2 (özet): aynı 13 test, hepsi ✔, `tests 13 / pass 13 / fail 0`, `durat
 Not (G4′ koşusu): ilk deneme 1 saat 14 dakika hiçbir dosya değiştirmeden asılı kaldı (son cümlesi: "tamamlanmış satırdaki düğmeyi büyütüp üstü çizili bulgusunu doğrulayayım" — kusuru kırpıntıdan önce fark etmişti; bir komut onay beklerken takıldı). Orkestratör aynı ajanı bağlamıyla sürdürdü; devam mesajında yalnız onay istemine takılmamak için "`git -C` kullanma, geçici dosyaları worktree içindeki `.zoom\`'a yaz, commit'leme" dendi. İlk G4 koşusu da bir kez aynı biçimde (4 saat, dosya değişmeden) asılı kalmış, durdurulup birebir aynı prompt'la yeniden koşulmuştu.
 
 **REFACTOR notu (araç + yuva):** G4, ipucun ("(ör. PowerShell `System.Drawing`, ya da daha büyük yeniden yakalama)") zaman baskısında UYGULANMADIĞINI gösterdi — özne görselleri açtı/listeledi (Pilot'un açığı kapandı) ama hiç kırpıntı üretmedi ve iddiayı doğrulamadan "eşleşti" işaretledi (R4'ün açığı AYNEN tekrarladı). Bu turda İKİ değişiklik yapıldı: (1) **araç** — `capture-page.mjs --zoom-image/--region/--scale` artık TEK bir çalıştırılabilir komut, "ipucu" değil (yukarıdaki RED/GREEN); (2) **yuva** — `PROOF-template.md` Görseller satırı artık kırpıntı dosya adı + gözlem + eşleşti/eşleşmedi İSTİYOR ("eşleşti" yalnız kırpıntı varsa yazılabilir), `SKILL.md` Roller bu komutu birebir gösteriyor. G4′ (bu REFACTOR'dan sonra) koşuldu ve geçti (tabloda). Özet: pilot 4/5 açma → R4 5/5 açma ama yüzeysel → G4 5/5 listeleme ama kırpıntısız → G4′ 5/5 + kırpıntı + "EŞLEŞMEDİ".
+
+## Tur 2
+
+| Görev | Tür | Aralık | Tur | Yazar modeli |
+|---|---|---|---|---|
+| PR #3 Tur 1 incelemesi (`docs/proof/pilot-dersleri-2/REVIEW-1.md`, SKOR 4): ONEMLI-1 (kırpıntı yeniden üretilebilirliği), ONEMLI-2 (`--zoom-image` 2 MB data-URL sınırı), KUCUK 1–5 | mantık | 362f93d..bu turun commit'i | 2 | sonnet |
+
+## İddia (Tur 2)
+- [x] **ONEMLI-1** (REVIEW-1.md:22) — `PROOF-template.md` Görseller yuvası artık kırpıntı dosya adına EK OLARAK kaynak görseli ve `--region x,y,w,h --scale n` değerlerini de istiyor: `{kırpıntı1.png ← kaynak1.png --region x,y,w,h --scale n → gözlem → eşleşti/eşleşmedi}`. `prove-it/SKILL.md` Roller'de "adı PROOF'a" → "adı/bölgesi PROOF'a" (kelime sayısı KORUNDU — bkz. Test/Ölçüm `wc -w`). Sonuç: inceleyici aynı `--region`/`--scale` değerleriyle aynı komutu çalıştırıp AYNI kırpıntıyı yeniden üretebilir.
+- [x] **ONEMLI-2** (REVIEW-1.md:23) — `--zoom-image` artık kaynak PNG'yi base64 GÖMMÜYOR; `run()` içinde koşuya özgü `profileDir`'e kaynağın bir kopyasını (`zoom-source.png`) ve onu GÖRECELİ yoldan referans alan `zoom.html`'i yazıp `file://` ile geziyor (`capture-page.mjs` `run()`, yeni blok). 2 MB `data:` URL sınırı ortadan kalktı — kanıt: aşağıdaki RED/GREEN (≥1,5 MB gürültülü kaynak PNG). Navigasyon hata iletisi de kısaltıldı: `formatUrlForError()` — `data:` URL'lerde yalnız şema + toplam uzunluk, diğer URL'lerde ilk 80 karakter + "…".
+- [x] **KUCUK-1 (K1)** — `pngDims()` artık 8 baytlık PNG imzası + ilk chunk'ın `IHDR` olup olmadığını kontrol ediyor; geçersizse (`--zoom-image` yolunda) tarayıcı AÇILMADAN (stderr'de `profil:` satırı YOK), "geçersiz PNG" mesajıyla çıkış 2. Kanıt: aşağıdaki RED/GREEN (metin dosyası + 3 baytlık dosya, iki ayrı test).
+- [x] **KUCUK-2 (K2)** — `--region`/`--scale` artık yalnız `--zoom-image` ile geçerli; `--url` moduyla (ya da hiçbir modla) verilirse çıkış 2 (`main()`, yeni kontrol). Kanıt: aşağıdaki RED/GREEN.
+- [x] **KUCUK-3 (K3)** — zoom piksel testi artık yalnız MERKEZ değil, `(0,0)` ve `(79,79)` köşelerini de `[255,0,0,255]` olarak assert ediyor (bölge tam kareye eşit olduğundan). Bu, test-güçlendirme; üretim kodunda davranış değişikliği yok — kanıt aşağıdaki GREEN'de (RED gerektirmez, bkz. Kapsam dışı).
+- [x] **KUCUK-4 (K4)** — `reloadEventPromise`'a (reload yolu), `loadEventPromise`'daki gibi erkenden `.catch(() => {})` bağlandı; reload ve loadEventFired aynı deadline'da birlikte zaman aşımına düşerse ikinci reddin `unhandledRejection` olma riski kapandı. Davranış değişikliği yok (savunma amaçlı); regresyon: `--setup` testi (reload yolunu egzersiz eder) TAM DÜZENEK'te iki koşuda da yeşil kaldı.
+- [x] **KUCUK-5 (K5)** — `prove-it/SKILL.md` Kalıcılaştır'da "Orkestratör commit mesajını `-F` ile dosyadan verir" — özne (Orkestratör) geri kondu. Kelime sınırı `.claude/skills/prove-it/SKILL.md` Roller'de "Alt-ajan raporu tek başına kanıt sayılmaz" → "Alt-ajan raporu kanıt sayılmaz" (−2 kelime) kırpılarak korundu: dosya tam 500/500 kelimede kaldı (bkz. Test/Ölçüm).
+- [x] **REFACTOR (görsel iddia yuvası)** — orkestratörün G4″ regresyonu (fixture `S/g/4`, commit `c5af03c`) yuvanın GÖRSEL↔KOD eşleşmesi olarak okunduğunu gösterdi: özne bir iddia için bölge kaydıyla kırpıntı aldı ama KODA karşı kıyasladı, diğer iddia için hiç kırpıntı almadan "eşleşti" yazıp yanlış iddiayı `[x]` bıraktı (bkz. "GREEN regresyonu (B)"). `PROOF-template.md` Görseller yuvası ve bu dosyanın "Orkestratör doğrulaması (Tur 2)" satırı artık İDDİA başına ("iddia DOĞRU/YANLIŞ"); `prove-it/SKILL.md` Roller ve Yasaklar aynı ilkeye güncellendi (`wc -w` 500/500). G4‴ regresyonu orkestratör tarafından koşuldu ve geçti (bkz. "GREEN regresyonu (B)").
+
+## Önce (Tur 2, KIRMIZI — orkestratörün Tur 1 commit'i `362f93d`'teki DEĞİŞTİRİLMEMİŞ `capture-page.mjs`'e karşı, yeni yazılan testlerle)
+
+Yöntem: mevcut (düzeltilmemiş) `capture-page.mjs` scratchpad'e yedeklendi, `git show HEAD:...capture-page.mjs` ile Tur 1'in DEĞİŞMEMİŞ hâli geçici olarak worktree'ye geri kondu (`node --check` ile doğrulandı), yeni testler bu hâle karşı tek tek çalıştırıldı, sonra düzeltilmiş dosya scratchpad yedeğinden GERİ YÜKLENDİ (`diff` ile birebir eşleştiği doğrulandı) — Tur 1'in kendi RED/GREEN yönteminin (`## B REFACTOR — KIRMIZI`) aynısı.
+
+### KUCUK-2 (K2) — KIRMIZI
+Komut: `node --test --test-name-pattern="yalnız --zoom-image ile geçerli" .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+```
+✖ --region/--scale yalnız --zoom-image ile geçerli: --url moduyla verilirse çıkış 2 (2511.5434ms)
+AssertionError [ERR_ASSERTION]: stderr:
+profil: ...\capture-page-selftest-eU2PJI\capture-page-1KTd2q
+cdp: port=51537 profil=...
+stdout:
+Kaydedildi: ...\region-with-url.png (1280x800, 4714 B)
+0 !== 2
+ℹ tests 1 / pass 0 / fail 1
+```
+EXIT:1 (beklenen kırmızı — eski kod `--region`/`--scale`'i `--url` ile sessizce yutup 1280x800 tam sayfa üretti, bölgeyi hiç uygulamadı)
+
+### KUCUK-1 (K1) — KIRMIZI (metin dosyası)
+Komut: `node --test --test-name-pattern="imza eşleşmiyorsa" .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+```
+✖ geçersiz PNG (--zoom-image): imza eşleşmiyorsa tarayıcı açılmadan açık mesajla çıkış 2 (4641.7024ms)
+AssertionError [ERR_ASSERTION]: stderr:
+profil: ...\capture-page-8sPrt3
+cdp: port=59075 profil=...
+Hata: {"code":-32602,"message":"Invalid parameters","data":"Failed to deserialize params.width - BINDINGS: int32 value expected at position 14"}
+1 !== 2
+ℹ tests 1 / pass 0 / fail 1
+```
+EXIT:1 (beklenen kırmızı — REVIEW-1'in kendi ölçümüyle birebir: tarayıcı BAŞLATILDI ["profil:" satırı var], CDP "Invalid parameters" ile çıkış 1)
+
+### KUCUK-1 (K1) — KIRMIZI (3 baytlık dosya)
+Komut: `node --test --test-name-pattern="3 baytlık dosya RangeError" .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+```
+✖ geçersiz PNG (--zoom-image): 3 baytlık dosya RangeError ile çökmez, tarayıcı açılmadan çıkış 2 (106.1792ms)
+AssertionError [ERR_ASSERTION]: beklenen "geçersiz PNG" mesajı yok:
+Hata: Attempt to access memory outside buffer bounds
+(HELP metni izliyor)
+expected: /geçersiz PNG/i
+ℹ tests 1 / pass 0 / fail 1
+```
+EXIT:1 (beklenen kırmızı — eski kod çıkış 2 veriyordu ama mesaj jenerik bir bellek-sınırı hatasıydı, "geçersiz PNG" DEĞİLDİ; REVIEW-1'in "RangeError metniyle çıkış 2" bulgusuyla aynı aile)
+
+### ONEMLI-2 — KIRMIZI (≥1,5 MB kaynak PNG)
+Komut: `node --test --test-name-pattern="1,5 MB üstü" .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+```
+✖ --zoom-image: 1,5 MB üstü kaynak PNG'de eski data-URL sınırına takılmaz (file:// ile gezilir) (10006.3269ms)
+AssertionError [ERR_ASSERTION]: ≥1,5 MB kaynakla --zoom-image çıkış 0 vermeli (data-URL sınırına takılmamalı); stderr:
+profil: ...\capture-page-JTSVeX
+cdp: port=57804 profil=...
+Hata: Sayfa yüklenemedi: net::ERR_ABORTED (data:text/html;base64,PCFkb2N0eXBlIGh0bWw+...
+  [~24.000 karakter base64, kısaltıldı — TAM haliyle stderr'e döküldü; bu bizzat
+   ONEMLI-2'nin ikinci bulgusunun (hata iletisinde MEGABAYT boyunda URL) kanıtıdır]
+  ...4YIzMxNjRlijCA)
+ℹ tests 1 / pass 0 / fail 1
+```
+EXIT:1 (beklenen kırmızı — REVIEW-1 ölçümüyle birebir aynı `net::ERR_ABORTED` arızası, gürültülü 900x900 kaynak PNG ile yeniden üretildi)
+
+Öncesi/sonrası yetim taraması (`Get-CimInstance Win32_Process CommandLine -match 'capture-page-|setInterval'`, orkestratör tarafından PowerShell ile): tüm 4 RED koşusundan önce/sonra 0/0.
+
+## Sonra (Tur 2, YEŞİL — düzeltilmiş `capture-page.mjs` geri yüklendikten sonra, aynı testler)
+
+### KUCUK-2 (K2) — YEŞİL
+`✔ --region/--scale yalnız --zoom-image ile geçerli: --url moduyla verilirse çıkış 2 (101.08ms)` — 1/1 PASS, EXIT:0
+
+### KUCUK-1 (K1) — YEŞİL (ikisi de)
+`✔ geçersiz PNG (--zoom-image): imza eşleşmiyorsa tarayıcı açılmadan açık mesajla çıkış 2 (103.08ms)`
+`✔ geçersiz PNG (--zoom-image): 3 baytlık dosya RangeError ile çökmez, tarayıcı açılmadan çıkış 2 (90.92ms)` — 2/2 PASS, EXIT:0
+
+### ONEMLI-2 — YEŞİL
+`✔ --zoom-image: 1,5 MB üstü kaynak PNG'de eski data-URL sınırına takılmaz (file:// ile gezilir) (5994.84ms)` — 1/1 PASS, EXIT:0. Kaynak PNG boyutu assert edildi: `bigBuf.length >= 1.5*1024*1024` (900x900 gürültü canvası). Çıktı IHDR TAM 40x40 (`--region 10,10,20,20 --scale 2` → 20*2).
+
+### KUCUK-3 (K3) dahil tüm --zoom-image testleri — YEŞİL
+Komut: `node --test --test-name-pattern="zoom-image" .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+```
+✔ --zoom-image ve --url birlikte verilemez: çıkış 2 (103.13ms)
+✔ --zoom-image: bilinen desenli PNG'ten bölge kırpıp büyütür, IHDR ve merkez piksel doğru; geçersiz bölge çıkış 2 verir (8301.14ms)
+✔ --region/--scale yalnız --zoom-image ile geçerli: --url moduyla verilirse çıkış 2 (95.03ms)
+✔ geçersiz PNG (--zoom-image): imza eşleşmiyorsa tarayıcı açılmadan açık mesajla çıkış 2 (91.42ms)
+✔ geçersiz PNG (--zoom-image): 3 baytlık dosya RangeError ile çökmez, tarayıcı açılmadan çıkış 2 (89.82ms)
+✔ --zoom-image: 1,5 MB üstü kaynak PNG'de eski data-URL sınırına takılmaz (file:// ile gezilir) (5960.96ms)
+ℹ tests 6 / pass 6 / fail 0
+```
+EXIT:0. İkinci testin gövdesi artık merkez + `(0,0)` + `(79,79)` köşe piksellerinin ÜÇÜNÜN de `[255,0,0,255]` olduğunu assert ediyor (K3).
+
+### Regresyon (--help, argümansız)
+`node capture-page.mjs --help` → çıkış 0, "Toplam süre sınırı" metni değişmeden duruyor. `node capture-page.mjs` (argümansız) → çıkış 2, "Hata: zorunlu parametre eksik: --url (ya da --zoom-image), --out".
+
+### Tam düzenek — iki ardışık koşu (17/17 test; K1/K2/ONEMLI-2 yeni testler dahil)
+Komut: `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
+
+Koşu 1: `tests 17 / pass 17 / fail 0`, `duration_ms 60485.45`, EXIT:0.
+Koşu 2: `tests 17 / pass 17 / fail 0`, `duration_ms 60021.84`, EXIT:0.
+
+Her iki koşunun öncesi/sonrası yetim taraması (`Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-|setInterval'`): 0/0.
+
+## Test / Ölçüm (Tur 2)
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| K2 `--test-name-pattern="yalnız --zoom-image ile geçerli"` (düzeltmeden ÖNCE) | KIRMIZI: çıkış 2 beklenir, GERÇEKTE 0 | 1/1 FAIL, `0 !== 2` | 1 | PASS (beklenen kırmızı) |
+| K2 aynı test (düzeltmeden SONRA) | 1/1 PASS, çıkış 2 | 1/1 PASS | 0 | PASS |
+| K1 metin dosyası (düzeltmeden ÖNCE) | KIRMIZI: çıkış 2 beklenir, GERÇEKTE 1 (tarayıcı açıldı) | 1/1 FAIL, `1 !== 2` | 1 | PASS (beklenen kırmızı) |
+| K1 metin dosyası (düzeltmeden SONRA) | 1/1 PASS, çıkış 2, tarayıcı AÇILMADI | 1/1 PASS | 0 | PASS |
+| K1 3 baytlık dosya (düzeltmeden ÖNCE) | KIRMIZI: "geçersiz PNG" mesajı yok | 1/1 FAIL | 1 | PASS (beklenen kırmızı) |
+| K1 3 baytlık dosya (düzeltmeden SONRA) | 1/1 PASS, çıkış 2, RangeError yok | 1/1 PASS | 0 | PASS |
+| ONEMLI-2 ≥1,5 MB kaynak (düzeltmeden ÖNCE) | KIRMIZI: çıkış 0 beklenir, GERÇEKTE 1 (`ERR_ABORTED`) | 1/1 FAIL | 1 | PASS (beklenen kırmızı) |
+| ONEMLI-2 aynı test (düzeltmeden SONRA) | 1/1 PASS, çıkış 0, IHDR 40x40 | 1/1 PASS | 0 | PASS |
+| K3 köşe pikselleri (`--test-name-pattern="zoom-image"`) | 6/6 PASS, merkez+2 köşe kırmızı | 6/6 PASS | 0 | PASS |
+| K4 regresyon (`--setup` testi, reload yolu) | TAM DÜZENEK'te değişmeden yeşil | değişmedi, yeşil | 0 | PASS |
+| Regresyon (`--help`, argümansız) | çıkış 0 / çıkış 2 | çıkış 0 / çıkış 2 | 0 / 2 | PASS |
+| Tam düzenek (2 ardışık koşu) | 17/17 PASS | 17/17 PASS (koşu 1 ve 2) | 0 | PASS |
+| K5 `wc -w .claude/skills/prove-it/SKILL.md` | ≤500 | 500 | — | PASS |
+| Yazar yetim süreç taraması (her adımdan önce/sonra) | 0/0 | 0/0 (tüm RED/GREEN koşuları + tam düzenek 1/2, 2/2) | — | PASS |
+
+## Orkestratör doğrulaması (Tur 2)
+- Test komutu tekrar çalıştırıldı (orkestratör, bağımsız, iki kez: yazarın kod düzeltmelerinden sonra ve metin REFACTOR'ından sonra commit öncesi): `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs` → 17/17 pass, 0 fail, çıkış 0. Öncesi/sonrası `capture-page-|setInterval` süreç 0 / 0; `%TEMP%\capture-page*` 0. Index boş (`git diff --cached` boş; yazar git yazma komutu çalıştırmadı).
+- `git diff --stat` kapsam kontrolü (`git diff --numstat 362f93d`): `PROOF-template.md` +1/−1, `prove-it/SKILL.md` +5/−5, `capture-page.mjs` +119/−28, `capture-page.selftest.mjs` +133/−8, `PROOF.md` +161/−0 (yalnız `## Tur 2` eklemesi; bu satırlardan önce ölçüldü). `git diff --quiet 362f93d -- AGENTS.md CLAUDE.md .claude/settings.json new-feature code-structure ship-it capture-screen.ps1 REVIEW-1.md docs/proof/pilot-dersleri docs/proof/README.md` → çıkış 0. `wc -w`: 496 / 390 / 500 / 492. SKILL.md diff'i okundu: Roller "adı/bölgesi PROOF'a" + "her görsel iddianın bölgesini … DOĞRU/YANLIŞ işaretler"; Kalıcılaştır'da "Orkestratör commit mesajını …" öznesi geri geldi (REVIEW-1 KUCUK-5).
+- Aralık/Yeniden üretme: `362f93d..bu turun commit'i`; "çalışma ağacı" ya da taban SHA'yı HEAD sayan adım yok → doğruydu.
+- Görseller: uygulanamaz — bu görevin kanıt dizininde görsel yok. (Baskı testi görselleri: G4″ ve G4‴ fixture'larının commit'lenmiş PROOF'ları okundu; G4‴'te 4/4 görsel iddianın her biri kendi bölge kaydıyla kırpılmış, iddia 4 YANLIŞ ve `[ ]` — `git show 6732a50:docs/proof/gorev-silme/PROOF.md`.)
+- Süreç/port temizliği: `capture-page-*` profilli tarayıcılar, `setInterval` yardımcıları, 5301–5303 → kapalı (sayım 0). G4″ ve G4‴ özneleri kendi süreçlerini kapattı (sonrasında sayım 0).
+
+## Kapsam dışı / bilinen eksikler (Tur 2)
+- **K3** için ayrı bir RED koşusu YOK: bölgenin köşe pikselleri, Tur 1'in mevcut kırpma/büyütme mantığında (davranış DEĞİŞMEDİ) zaten doğruydu — bu yalnız test-güçlendirmedir (regresyona karşı gelecekteki bir korumadır), bir üretim hatasını düzeltmez. K3'ün "kırmızısı" kavramsal olarak "eski test yalnız merkezi kontrol ettiği için bir left/top işaret hatasını KAÇIRIRDI" — bu iddia REVIEW-1.md:27'de zaten belgelenmiş, burada yeniden üretilmedi.
+- **K4** için ayrı bir RED testi YOK: `unhandledRejection` yarış durumu (reload + loadEventFired'ın AYNI ANDA zaman aşımına düşmesi) belirlenimci biçimde tetiklenemiyor (zamanlamaya bağlı); düzeltme savunma amaçlı (`loadEventPromise`'daki ile simetrik) uygulandı, mevcut `--setup` testinin regresyonsuz geçmesiyle doğrulandı.
+- ONEMLI-2'nin GREEN testi kaynak PNG'yi 900x900 rastgele gürültü canvas'ıyla üretiyor (~3 MB ham/render, PNG ~1,5-2 MB); REVIEW-1'in kendi ölçümündeki (1.443.328 B kaynak, gerçek bir UI ekran görüntüsü) boyuttan farklı bir kaynakla ama AYNI kök nedeni (kaynak boyutu → data-URL boyutu → Chromium URL sınırı) hedefliyor.
+- Tur 1'den taşınan bilinen sınırlamalar (POSIX `countProcessesWithProfile` dalı bu makinede doğrulanmadı, A6 çapraz-oturum ödünleşimi) bu turda DA geçerli, tekrar değerlendirilmedi.
+
+## Yeniden üretme (Tur 2)
+1. Bu turun commit'ini checkout et (SHA: REVIEW-2.md başlığı / PR head'i).
+2. `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs` — 17/17 PASS, çıkış 0 beklenir (~60 sn).
+3. Her koşudan önce/sonra `Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-'` → 0/0 beklenir (test SIRASINDA `izolasyon` testi çalışırken geçici olarak >0 görülebilir — bkz. Tur 1 A6).
+4. `node .claude/skills/prove-it/scripts/capture-page.mjs --help` — "Toplam süre sınırı" görünür, çıkış 0.
+5. `wc -w .claude/skills/prove-it/SKILL.md` → 500 (≤500 sözleşmesi korunuyor) beklenir.
+
+### GREEN regresyonu (B)
+
+| # | Kaynak | Sonuç |
+|---|---|---|
+| G4″ | Tur 2 skill'leri (bölge kaydı), G4 prompt'u + yalnız "git -C kullanma, geçici dosyalar worktree içinde" ortam notu | FAIL — 5/5 açıldı, bölge kaydıyla kırpıntı alındı ama yanlış görselde ve koda karşı; after-tamamlandi.png için kırpıntı yok, "Sil normal → EŞLEŞTİ", yanlış iddia [x] (`c5af03c`); yan bulgular gerçek: 4 görsel koddan üretilmemiş (düzenek sentetiği), Sil'in JS'i yok |
+| G4‴ | İddia başına yuva sonrası; G4″ ile birebir aynı prompt; fixture yeniden kuruldu (aynı 5 görsel, hash `3BB7379AB216…`) | geçti — 5/5 görsel adıyla; 4/4 görsel iddianın her biri KENDİ bölgesinin kırpıntısıyla ve bölge kaydıyla (ör. `kırpıntı_4 ← after-tamamlandi.png --region 120,62,90,30 --scale 8`, kontrol kırpıntısı `--region 0,15,260,45 --scale 5`); 3 DOĞRU, iddia 4 YANLIŞ ("Sil yazısının üzerinden yatay çizgi geçiyor"), İddia listesinde `[ ]` + üstü çizili; kök neden `text-decoration: inherit`; geçici dosyalar silindi, süreç 0 (`6732a50`) |
+
+Seyir (B, orkestratör katmanı): pilot 4/5 açma → R4 5/5 ama yüzeysel (FAIL) → G4 yuva+ipucu, kırpıntısız (FAIL) → G4′ araç+kırpıntı yuvası (geçti) → G4″ bölge kaydı ama görsel↔kod yorumu (FAIL) → G4‴ iddia başına yuva (geçti). REFACTOR sonrası son iki biçimde 2/3.
+
+**REFACTOR notu (iddia başına yuva):** G4″, ONEMLI-1/İlk tur yuvasının GÖRSEL↔KOD eşleşmesi olarak okunduğunu gösterdi — özne bir iddia (liste) için bölge kaydıyla bir kırpıntı aldı ama onu KODA karşı kıyasladı; diğer iddia (`after-tamamlandi.png`) için hiç kırpıntı almadan kendi yeniden yakalamasıyla (aynı kusuru taşıyan) "pikselde aynı" deyip "Sil normal → EŞLEŞTİ" yazdı, yanlış iddiayı `[x]` bıraktı. Yuva artık İDDİA başına, görsel başına DEĞİL: her görsel iddianın KENDİ bölgesinin kırpıntısı olmadan onay yazılamaz, karar iddianın DOĞRU/YANLIŞ'ıdır — görsel↔kod uyumu (görselin gerçekten kodu yansıtıp yansıtmadığı) ayrı, bağımsız bir gözlemdir ve iddianın doğruluğunun yerine geçmez. `PROOF-template.md` Görseller yuvası, bu dosyanın "Orkestratör doğrulaması (Tur 2)" satırı ve `prove-it/SKILL.md` (Roller + Yasaklar) bu turda güncellendi (yukarı bkz., `wc -w` 500/500). G4‴ (bu REFACTOR sonrası, aynı G4 prompt'uyla) koşuldu ve geçti (tabloda).

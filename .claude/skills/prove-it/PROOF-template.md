@@ -30,7 +30,7 @@ başlığına girer (inceleyiciye verilen SHA'lar oradadır). -->
 - Test komutu tekrar çalıştırıldı: {komut} → {sonuç}
 - `git diff --stat` kapsam kontrolü: {sonuç}
 - Aralık/Yeniden üretme: {taban-sha}..bu turun commit'i; "çalışma ağacı" ya da taban SHA'yı HEAD sayan adım yok → {doğruydu | düzeltildi: …}
-- Görseller: {n}/{n} açıldı — {ad1.png: gözlem} …; iddia bölgesi kırpıntıları (`--zoom-image`): {kırpıntı1.png → gözlem → eşleşti/eşleşmedi} … (n/n DEĞİLSE ya da iddia içeren bir görselin kırpıntısı YOKSA "eşleşti" YAZILMAZ) | uygulanamaz
+- Görseller: {n}/{n} açıldı — {ad1.png: gözlem} …; görsel iddialar: {İddia k (ad1.png): kırpıntı_k ← ad1.png --region x,y,w,h --scale n → iddia DOĞRU/YANLIŞ} … (her görsel iddianın KENDİ bölgesinin kırpıntısı yoksa ya da n/n değilse onay YAZILMAZ; YANLIŞ iddia İddia listesinde [ ] yapılır) | uygulanamaz
 - Süreç/port temizliği: {portlar} → {kapalı | açıktı: PID … durduruldu}
 
 ## Kapsam dışı / bilinen eksikler

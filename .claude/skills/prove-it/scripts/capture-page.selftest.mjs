@@ -534,8 +534,13 @@ test("--zoom-image: bilinen desenli PNG'ten bölge kırpıp büyütür, IHDR ve 
     assert.equal(zoomDims.width, 80, 'çıktı genişliği w*scale (20*4) olmalı');
     assert.equal(zoomDims.height, 80, 'çıktı yüksekliği h*scale (20*4) olmalı');
 
-    // 4. Merkez piksel kırmızı mı? Kendi capture-page.mjs'imizle (--url file://… +
-    // --eval ile canvas'a çizip getImageData) doğrula — yeni bağımlılık yok.
+    // 4. Merkez VE iki köşe piksel kırmızı mı? Kendi capture-page.mjs'imizle
+    // (--url file://… + --eval ile canvas'a çizip getImageData) doğrula —
+    // yeni bağımlılık yok. REVIEW-1 KUCUK-3: yalnız MERKEZ pikseli kontrol
+    // etmek, bölgenin left/top işaret hatasını ya da ±birkaç piksellik
+    // kaymasını YAKALAMAZ (merkez her iki durumda da hâlâ kare içinde
+    // kalabilir); bölge tam kareye eşit olduğundan (0,0) ve (79,79) köşeleri
+    // de [255,0,0,255] olmalı — ikisi de eklendi.
     const verifyHtml = `<!doctype html><html><body style="margin:0"><img id="i" src="data:image/png;base64,${zoomBuf.toString('base64')}"></body></html>`;
     const verifyHtmlPath = path.join(tmpDir, 'zoom-verify.html');
     writeFileSync(verifyHtmlPath, verifyHtml);
@@ -544,22 +549,142 @@ test("--zoom-image: bilinen desenli PNG'ten bölge kırpıp büyütür, IHDR ve 
     const evalExpr =
       "(() => { const img = document.getElementById('i'); const c = document.createElement('canvas'); " +
       "c.width = img.naturalWidth; c.height = img.naturalHeight; const ctx = c.getContext('2d'); " +
-      "ctx.drawImage(img, 0, 0); const d = ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data; " +
-      'return [d[0], d[1], d[2], d[3]]; })()';
+      "ctx.drawImage(img, 0, 0); const at = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data); " +
+      "return { center: at(Math.floor(c.width / 2), Math.floor(c.height / 2)), topLeft: at(0, 0), " +
+      'bottomRight: at(c.width - 1, c.height - 1) }; })()';
     const pixelRes = await runCapture(['--url', verifyUrl, '--out', pixelOut, '--eval', evalExpr, '--width', '10', '--height', '10']);
     assert.equal(pixelRes.status, 0, `piksel doğrulama başarısız; stderr:\n${pixelRes.stderr}\nstdout:\n${pixelRes.stdout}`);
     const m = pixelRes.stdout.match(/EVAL=(.+)/);
     assert.ok(m, `EVAL çıktısı bulunamadı:\n${pixelRes.stdout}`);
-    const [r, g, b, a] = JSON.parse(m[1]);
-    assert.equal(r, 255, `merkez piksel kırmızı (R) olmalı, bulunan: [${r},${g},${b},${a}]`);
-    assert.equal(g, 0, `merkez piksel kırmızı (G=0) olmalı, bulunan: [${r},${g},${b},${a}]`);
-    assert.equal(b, 0, `merkez piksel kırmızı (B=0) olmalı, bulunan: [${r},${g},${b},${a}]`);
+    const pixels = JSON.parse(m[1]);
+    for (const [label, [r, g, b]] of Object.entries(pixels)) {
+      assert.equal(r, 255, `${label} piksel kırmızı (R) olmalı, bulunan: [${pixels[label].join(',')}]`);
+      assert.equal(g, 0, `${label} piksel kırmızı (G=0) olmalı, bulunan: [${pixels[label].join(',')}]`);
+      assert.equal(b, 0, `${label} piksel kırmızı (B=0) olmalı, bulunan: [${pixels[label].join(',')}]`);
+    }
 
     // Yetim/profil temizliği (A6 kökü): bu testin ÜÇ `runCapture` çağrısı da
     // `runRoot` altında çalıştı, hiçbiri yetim bırakmamalı.
     assert.equal(countProcessesWithProfile(runRoot), 0, 'zoom testlerinden sonra yetim tarayıcı kaldı');
   } finally {
     await new Promise((resolve) => squareServer.close(resolve));
+  }
+});
+
+// REVIEW-1 KUCUK-2: --region/--scale yalnız --zoom-image ile ANLAMLIDIR;
+// önceden --url moduyla verildiğinde SESSİZCE YUTULUYORDU (denendi: --url
+// about:blank --region 0,0,10,10 --scale 2 → çıkış 0, 50x40).
+test('--region/--scale yalnız --zoom-image ile geçerli: --url moduyla verilirse çıkış 2', async () => {
+  const out = path.join(tmpDir, 'region-with-url.png');
+  const res = await runCapture([
+    '--url', baseUrl,
+    '--out', out,
+    '--region', '0,0,10,10',
+    '--scale', '2',
+  ]);
+  assert.equal(res.status, 2, `stderr:\n${res.stderr}\nstdout:\n${res.stdout}`);
+  assert.equal(existsSync(out), false, '--region/--scale --url ile kabul edilmemeli, PNG oluşmamalı');
+});
+
+// REVIEW-1 KUCUK-1: `pngDims`/`prepareZoom` önceden PNG imzası/IHDR kontrolü
+// yapmıyordu. Denenen iki arıza biçimi: (a) 100+ baytlık metin dosyası
+// `--region`'sız verilince tarayıcı BAŞLATILIP CDP hatasıyla çıkış 1
+// veriyordu; (b) `--region` ile verilince 40x40'lık "kırık görsel" simgesi
+// SESSİZCE üretilip çıkış 0 dönüyordu (SAHTE BAŞARI); (c) 3 baytlık dosya
+// RangeError ile çöküyordu. Artık ikisi de (imza yoksa VEYA dosya çok
+// kısaysa) tarayıcı hiç AÇILMADAN (stderr'de "profil:" satırı YOK), açık
+// bir mesajla çıkış 2 verir.
+test('geçersiz PNG (--zoom-image): imza eşleşmiyorsa tarayıcı açılmadan açık mesajla çıkış 2', async () => {
+  const badPng = path.join(tmpDir, 'not-a-png.png');
+  writeFileSync(badPng, 'bu bir PNG değil, düz metin dosyası, seksen bayttan uzun olacak şekilde dolduruldu.......');
+  const out = path.join(tmpDir, 'zoom-from-bad-png.png');
+  const res = await runCapture(['--zoom-image', badPng, '--out', out]);
+  assert.equal(res.status, 2, `stderr:\n${res.stderr}\nstdout:\n${res.stdout}`);
+  assert.equal(existsSync(out), false, 'geçersiz PNG ile çıktı oluşmamalı');
+  assert.doesNotMatch(res.stderr, /profil:/, `tarayıcı AÇILMAMALIYDI (profil satırı görüldü):\n${res.stderr}`);
+  assert.match(res.stderr, /geçersiz PNG/i, `beklenen "geçersiz PNG" mesajı yok:\n${res.stderr}`);
+});
+
+test('geçersiz PNG (--zoom-image): 3 baytlık dosya RangeError ile çökmez, tarayıcı açılmadan çıkış 2', async () => {
+  const tinyFile = path.join(tmpDir, 'tiny.png');
+  writeFileSync(tinyFile, Buffer.from([1, 2, 3]));
+  const out = path.join(tmpDir, 'zoom-from-tiny.png');
+  const res = await runCapture(['--zoom-image', tinyFile, '--out', out]);
+  assert.equal(res.status, 2, `stderr:\n${res.stderr}\nstdout:\n${res.stdout}`);
+  assert.equal(existsSync(out), false, '3 baytlık girdiyle çıktı oluşmamalı');
+  assert.doesNotMatch(res.stderr, /profil:/, `tarayıcı AÇILMAMALIYDI (profil satırı görüldü):\n${res.stderr}`);
+  assert.doesNotMatch(res.stderr, /RangeError/, `RangeError ile çökmemeli:\n${res.stderr}`);
+  assert.match(res.stderr, /geçersiz PNG/i, `beklenen "geçersiz PNG" mesajı yok:\n${res.stderr}`);
+});
+
+// REVIEW-1 ONEMLI-2: --zoom-image ÖNCEDEN kaynak PNG'yi base64 gömüp
+// `data:text/html;base64,…` URL'i olarak gezerdi. Ölçülen: 1.443.328 B
+// kaynak → URL ~2,57 MB → Chromium'un `Page.navigate` ~2 MB URL sınırını
+// aşıp `net::ERR_ABORTED` ile çıkış 1 veriyordu. Bu test önce (mevcut
+// koddan ÖNCE, TDD KIRMIZI) ≥1,5 MB'lık gürültülü bir kaynak PNG'yle bu
+// arızayı yeniden üretmeyi, düzeltmeden SONRA ise (`file://` + göreli yol)
+// aynı senaryonun çıkış 0 ve beklenen IHDR ile bittiğini doğrular — kaynak
+// PNG'nin GERÇEKTEN büyük olduğu `buf.length` assert'iyle güvenceye alınır.
+test("--zoom-image: 1,5 MB üstü kaynak PNG'de eski data-URL sınırına takılmaz (file:// ile gezilir)", async () => {
+  const NOISE_SIDE = 900; // 900*900*4 B ham veri (~3,09 MB); rastgele gürültü zor sıkışır, PNG'si güvenle ≥1,5 MB kalır.
+  const noiseHtml = `<!doctype html><html><body style="margin:0">` +
+    `<canvas id="c" width="${NOISE_SIDE}" height="${NOISE_SIDE}" style="display:block"></canvas>` +
+    `<script>
+      const c = document.getElementById('c');
+      const ctx = c.getContext('2d');
+      const img = ctx.createImageData(${NOISE_SIDE}, ${NOISE_SIDE});
+      const buf = img.data;
+      for (let i = 0; i < buf.length; i++) buf[i] = Math.floor(Math.random() * 256);
+      for (let i = 3; i < buf.length; i += 4) buf[i] = 255; // tam opak
+      ctx.putImageData(img, 0, 0);
+    </script></body></html>`;
+  const noiseServer = createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(noiseHtml);
+  });
+  await new Promise((resolve) => noiseServer.listen(0, '127.0.0.1', resolve));
+  const { port: noisePort } = noiseServer.address();
+  const noiseUrl = `http://127.0.0.1:${noisePort}/`;
+
+  try {
+    const bigSourceOut = path.join(tmpDir, 'zoom-big-source.png');
+    const genRes = await runCapture([
+      '--url', noiseUrl,
+      '--out', bigSourceOut,
+      '--width', String(NOISE_SIDE),
+      '--height', String(NOISE_SIDE),
+      '--timeout-ms', '20000',
+    ]);
+    assert.equal(genRes.status, 0, `büyük gürültülü kaynak PNG üretimi başarısız; stderr:\n${genRes.stderr}`);
+    const bigBuf = readFileSync(bigSourceOut);
+    const MIN_BYTES = 1.5 * 1024 * 1024;
+    assert.ok(
+      bigBuf.length >= MIN_BYTES,
+      `kaynak PNG en az 1,5 MB olmalı (gürültü yeterince sıkışmadı mı?), bulunan: ${bigBuf.length} B`,
+    );
+
+    const zoomOut = path.join(tmpDir, 'zoom-from-big-source.png');
+    const zoomRes = await runCapture([
+      '--zoom-image', bigSourceOut,
+      '--region', '10,10,20,20',
+      '--scale', '2',
+      '--out', zoomOut,
+      '--timeout-ms', '20000',
+    ]);
+    assert.equal(
+      zoomRes.status,
+      0,
+      `≥1,5 MB kaynakla --zoom-image çıkış 0 vermeli (data-URL sınırına takılmamalı); ` +
+        `stderr:\n${zoomRes.stderr}\nstdout:\n${zoomRes.stdout}`,
+    );
+    const zoomBuf = readFileSync(zoomOut);
+    const zoomDims = pngDims(zoomBuf);
+    assert.equal(zoomDims.width, 40, 'çıktı genişliği w*scale (20*2) olmalı');
+    assert.equal(zoomDims.height, 40, 'çıktı yüksekliği h*scale (20*2) olmalı');
+
+    assert.equal(countProcessesWithProfile(runRoot), 0, 'büyük zoom testinden sonra yetim tarayıcı kaldı');
+  } finally {
+    await new Promise((resolve) => noiseServer.close(resolve));
   }
 });
 
