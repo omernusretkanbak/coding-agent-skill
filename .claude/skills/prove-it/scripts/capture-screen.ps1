@@ -1,5 +1,9 @@
+# SON ÇARE — yalnız masaüstü UYGULAMALARI için (web sayfası için
+# capture-page.mjs kullan). Birincil ekranın TAMAMINI yakalar: uygulama
+# dışındaki her pencere ve özel içerik görüntüye girebilir. Commit'ten önce
+# görüntüyü aç ve kontrol et; ilgisiz pencere/özel içerik varsa ham görüntüyü
+# commit'leme, sil — yalnız temiz (kırpılmış) bir sürüm commit'lenebilir.
 # Kullanım: powershell -NoProfile -ExecutionPolicy Bypass -File capture-screen.ps1 -Out "C:\yol\ekran.png"
-# Yalnız birincil ekranı yakalar.
 param(
     [Parameter(Mandatory)]
     [string]$Out
