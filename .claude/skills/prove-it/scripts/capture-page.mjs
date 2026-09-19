@@ -12,7 +12,27 @@
 //   node capture-page.mjs --url <url> --out <png> [--width 1280] [--height 800]
 //     [--media <ad>=<değer>]... [--setup <js>] [--eval <js>] [--wait-ms 300]
 //     [--timeout-ms 30000] [--browser <exe>]
+//   node capture-page.mjs --zoom-image <png> --out <png> [--region x,y,w,h]
+//     [--scale 4]
 //   node capture-page.mjs --help
+//
+// Yakınlaştırma modu (--zoom-image, --url ile BİRLİKTE VERİLEMEZ): kanıt
+// incelemede iddia edilen küçük bir bölgeyi (ör. bir düğmenin metni) kırpıp
+// büyütür — pilot-dersleri-2 B: "görseli açtım, normal görünüyor" gibi
+// yüzeysel bakışları önlemek için TEK adımlık bir araç. Yeni bağımlılık
+// EKLEMEZ: `run()` içinde koşuya özgü `profileDir`'e kaynak PNG'nin bir
+// kopyasını (`zoom-source.png`) ve onu GÖRECELİ yoldan referans alan küçük
+// bir HTML sayfasını (`zoom.html`) yazıp `file://` ile gezer
+// (`image-rendering: pixelated`, bölgeyi `scale` kat büyüten mutlak
+// konumlandırma). ÖNCEKİ sürüm PNG'yi base64 gömüp
+// `data:text/html;base64,…` URL'i olarak gezinirdi; kaynak ~1,2 MB'ı aşınca
+// Chromium'un `Page.navigate` için uyguladığı ~2 MB URL sınırını aşıp
+// `net::ERR_ABORTED` veriyordu (REVIEW-1 ONEMLI-2) — `file://` yolunda URL
+// uzunluğu kaynak boyutundan bağımsızdır. Aynı MEVCUT
+// navigate/capture/temizlik hattını (aynı `run()`, aynı tek global
+// `--timeout-ms` deadline'ı) kullanır — yalnızca `args.url`/`args.width`/
+// `args.height` bu moda özgü değerlerle değiştirilir; `zoom.html` ve
+// `zoom-source.png` profil dizini ile birlikte otomatik temizlenir.
 //
 // Çıkış kodları: 0 başarı, 1 çalışma hatası (ör. erişilemeyen URL),
 //                2 kullanım hatası / tarayıcı bulunamadı.
@@ -36,7 +56,7 @@
 // halde temizlik fırsatı bulunamaz.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -44,10 +64,20 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 const HELP = `Kullanım:
   node capture-page.mjs --url <url> --out <png> [seçenekler]
+  node capture-page.mjs --zoom-image <png> --out <png> [--region x,y,w,h] [--scale 4]
 
-Zorunlu:
-  --url <url>            Yakalanacak sayfanın adresi
+Zorunlu (iki moddan biri):
+  --url <url>             Yakalanacak sayfanın adresi (--zoom-image ile
+                          BİRLİKTE VERİLEMEZ)
+  --zoom-image <png>      Yerel bir PNG'yi kırpıp büyütür (yakınlaştırma
+                          modu; --url ile BİRLİKTE VERİLEMEZ)
   --out <yol>             PNG çıktısının kaydedileceği yol
+
+Yakınlaştırma modu seçenekleri (yalnız --zoom-image ile):
+  --region <x,y,w,h>      Kırpılacak bölge, piksel (varsayılan: görselin
+                          tamamı); görsel sınırlarının dışına taşarsa hata
+  --scale <1-8>           Büyütme kat sayısı, tam sayı 1-8 (varsayılan: 4);
+                          çıktı TAM w*scale × h*scale piksel olur
 
 Seçenekler:
   --width <px>            Görüntü genişliği (varsayılan: 1280)
@@ -60,7 +90,10 @@ Seçenekler:
   --eval <js>             Ekran görüntüsünden hemen önce çalıştırılacak JS;
                           sonucu stdout'a "EVAL=<json>" olarak yazılır
   --wait-ms <ms>          Yükleme sonrası bekleme (varsayılan: 300)
-  --timeout-ms <ms>       Genel zaman aşımı, ms (varsayılan: 30000). Bu
+  --timeout-ms <ms>       Toplam süre sınırı, ms (varsayılan: 30000). run()
+                          başında tek bir bitiş zamanına (deadline) çevrilir;
+                          her adım kalan süreyle sınırlanır, TÜM çalışma
+                          zamanı bu değeri aşamaz (adım başına değil). Bu
                           değeri çağıranın KENDİ dış zaman aşımından kısa
                           tut — aksi halde temizlik fırsatı bulunamaz.
   --browser <exe>         Tarayıcı çalıştırılabilir yolu (yoksa CAPTURE_BROWSER
@@ -87,6 +120,29 @@ function parsePositiveInt(raw, flag, allowZero = false) {
   return n;
 }
 
+function parseScale(raw) {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 8) {
+    throw new Error(`--scale 1 ile 8 arasında bir tamsayı olmalı: ${raw}`);
+  }
+  return n;
+}
+
+// Yalnız SÖZ DİZİMİNİ (4 negatif olmayan tamsayı, w/h > 0) doğrular; görsel
+// SINIRLARINA göre doğrulama (`--zoom-image` okunduktan sonra gerçek
+// genişlik/yükseklik bilinir) `prepareZoom()`'da yapılır.
+function parseRegion(raw) {
+  const parts = raw.split(',').map((s) => Number(s.trim()));
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0)) {
+    throw new Error(`--region x,y,w,h biçiminde negatif olmayan 4 tamsayı olmalı: ${raw}`);
+  }
+  const [x, y, w, h] = parts;
+  if (w <= 0 || h <= 0) {
+    throw new Error(`--region genişlik ve yükseklik pozitif olmalı: ${raw}`);
+  }
+  return { x, y, w, h };
+}
+
 function parseArgs(argv) {
   const args = {
     url: null,
@@ -100,6 +156,10 @@ function parseArgs(argv) {
     timeoutMs: 30000,
     browser: null,
     help: false,
+    zoomImage: null,
+    region: null,
+    scale: 4,
+    scaleExplicit: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -142,6 +202,16 @@ function parseArgs(argv) {
       case '--browser':
         args.browser = requireValue(argv, ++i, '--browser');
         break;
+      case '--zoom-image':
+        args.zoomImage = requireValue(argv, ++i, '--zoom-image');
+        break;
+      case '--region':
+        args.region = parseRegion(requireValue(argv, ++i, '--region'));
+        break;
+      case '--scale':
+        args.scale = parseScale(requireValue(argv, ++i, '--scale'));
+        args.scaleExplicit = true;
+        break;
       default:
         throw new Error(`Bilinmeyen parametre: ${arg}`);
     }
@@ -183,10 +253,96 @@ function findBrowser(explicit) {
   return null;
 }
 
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+// REVIEW-1 KUCUK-1: önceden imza/IHDR kontrolü yoktu — 40x40'lık "kırık
+// görsel" simgesini SESSİZCE üretip çıkış 0 veren (SAHTE BAŞARI) ya da
+// RangeError ile çöken girdiler vardı. 8 baytlık PNG imzası + ilk chunk'ın
+// `IHDR` olup olmadığı burada kontrol edilir; geçersizse (--zoom-image
+// yolunda) tarayıcı hiç AÇILMADAN, açık bir mesajla hata fırlatılır.
 function pngDims(buf) {
+  if (buf.length < 24) {
+    throw new Error(`geçersiz PNG: dosya çok kısa (${buf.length} B, en az 24 B gerekli)`);
+  }
+  if (!buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error('geçersiz PNG: 8 baytlık PNG imzası eşleşmiyor');
+  }
+  if (buf.toString('ascii', 12, 16) !== 'IHDR') {
+    throw new Error(`geçersiz PNG: ilk chunk IHDR değil (bulunan: ${buf.toString('ascii', 12, 16)})`);
+  }
   const width = buf.readUInt32BE(16);
   const height = buf.readUInt32BE(20);
   return { width, height };
+}
+
+// Yalnız SÖZ DİZİMİNİ değil, GERÇEK görsel sınırlarını da doğrular (region
+// belirtilmemişse görselin tamamı).
+function resolveZoomRegion(imgWidth, imgHeight, region) {
+  const { x, y, w, h } = region ?? { x: 0, y: 0, w: imgWidth, h: imgHeight };
+  if (x + w > imgWidth || y + h > imgHeight) {
+    throw new Error(
+      `--region görsel sınırlarının dışına taşıyor: bölge (${x},${y},${w},${h}), görsel ${imgWidth}x${imgHeight}`,
+    );
+  }
+  return { x, y, w, h };
+}
+
+// Yakınlaştırma modu HTML'i: kaynak PNG'yi GÖRECELİ bir yoldan (`imgSrcRelPath`,
+// aynı dizindeki `zoom-source.png`) referans alır — base64 GÖMMEZ (REVIEW-1
+// ONEMLI-2, bkz. dosya başı yorumu). `#v` (viewport) TAM `w*scale × h*scale`
+// piksel; `<img>` kaynak görseli `scale` kat büyütülmüş boyutuyla mutlak
+// konumlandırılıp `(-x*scale, -y*scale)` kaydırılır, `#v`'nin
+// `overflow:hidden`'ı geri kalanı kırpar — sonuç, istenen bölgenin `scale`
+// kat büyütülmüş hâlidir. `image-rendering: pixelated` bulanıklaştırmadan
+// (nearest-neighbor) büyütür.
+function buildZoomHtml(region, scale, imgSrcRelPath, imgWidth, imgHeight) {
+  const { x, y, w, h } = region;
+  const outW = w * scale;
+  const outH = h * scale;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;overflow:hidden;background:#000;}
+#v{position:relative;width:${outW}px;height:${outH}px;overflow:hidden;}
+#v img{position:absolute;left:${-x * scale}px;top:${-y * scale}px;width:${imgWidth * scale}px;height:${imgHeight * scale}px;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;}
+</style></head><body><div id="v"><img src="${imgSrcRelPath}"></div></body></html>`;
+}
+
+// Girişleri okur/doğrular (dosya var mı, geçerli bir PNG mi, region görsel
+// sınırları içinde mi) ve zoom modu için gereken değerleri `args` üzerine
+// yazar. Asıl `zoom-source.png`/`zoom.html` dosyaları `run()` içinde,
+// koşuya özgü `profileDir` VAR OLDUKTAN SONRA yazılır (bkz. `run()`) —
+// burada yalnız doğrulama yapılır, hiçbir dosya yazılmaz, tarayıcı açılmaz.
+function prepareZoom(args) {
+  if (!existsSync(args.zoomImage)) {
+    throw new Error(`--zoom-image bulunamadı: ${args.zoomImage}`);
+  }
+  const buf = readFileSync(args.zoomImage);
+  const { width: imgWidth, height: imgHeight } = pngDims(buf);
+  const region = resolveZoomRegion(imgWidth, imgHeight, args.region);
+  args.zoomMode = true;
+  args.zoomBuf = buf;
+  args.zoomRegion = region;
+  args.zoomScale = args.scale;
+  args.zoomImgWidth = imgWidth;
+  args.zoomImgHeight = imgHeight;
+  args.width = region.w * args.scale;
+  args.height = region.h * args.scale;
+}
+
+// Hata iletisinde URL'yi kısaltır: `data:` URL'ler MEGABAYT boyutunda
+// olabilir (ör. --zoom-image'ın ESKİ base64-gömme yöntemi, REVIEW-1
+// ONEMLI-2) ve tam haliyle stderr'e yazılırsa çıktıyı boğar; yalnız şema
+// (ilk virgüle kadar) + toplam uzunluk yazılır. Diğer URL'ler 80 karakterden
+// uzunsa kısaltılır.
+function formatUrlForError(url) {
+  if (url.startsWith('data:')) {
+    const comma = url.indexOf(',');
+    const scheme = comma === -1 ? url : url.slice(0, comma);
+    return `${scheme},… (toplam uzunluk: ${url.length} B)`;
+  }
+  if (url.length > 80) {
+    return `${url.slice(0, 80)}…`;
+  }
+  return url;
 }
 
 function describeException(exceptionDetails) {
@@ -389,9 +545,15 @@ async function removeProfileDir(profileDir, totalBudgetMs = 15000) {
 }
 
 class CdpClient {
-  constructor(ws, timeoutMs) {
+  // REVIEW-2 KUCUK-3: sabit `timeoutMs` yerine, çağıranın verdiği bir
+  // `getRemainingMs()` fonksiyonu tutulur — her `send`/`waitForEvent`
+  // çağrısında run()'ın TEK global deadline'ına göre KALAN süre yeniden
+  // hesaplanır. Böylece toplam çalışma zamanı hiçbir zaman --timeout-ms'i
+  // aşamaz (önceki: her çağrı kendi TAM --timeout-ms bütçesiyle, sıfırlanan
+  // bir saatle ölçülüyordu).
+  constructor(ws, getRemainingMs) {
     this.ws = ws;
-    this.timeoutMs = timeoutMs;
+    this.getRemainingMs = getRemainingMs;
     this.nextId = 1;
     this.pending = new Map();
     this.eventWaiters = [];
@@ -422,23 +584,33 @@ class CdpClient {
 
   send(method, params = {}) {
     const id = this.nextId++;
+    const ms = this.getRemainingMs();
+    if (ms <= 0) {
+      return Promise.reject(new Error(`${method}: toplam süre sınırı aşıldı`));
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`${method} zaman aşımına uğradı`));
-      }, this.timeoutMs);
+      }, ms);
       this.pending.set(id, { resolve, reject, timer });
       this.ws.send(JSON.stringify({ id, method, params }));
     });
   }
 
-  waitForEvent(method, timeoutMs = this.timeoutMs) {
+  waitForEvent(method, timeoutMs) {
+    const ms = timeoutMs ?? this.getRemainingMs();
+    if (ms <= 0) {
+      const rejected = Promise.reject(new Error(`${method}: toplam süre sınırı aşıldı`));
+      rejected.cancel = () => {};
+      return rejected;
+    }
     let entry;
     const promise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.eventWaiters = this.eventWaiters.filter((w) => w !== entry);
         reject(new Error(`${method} eventi zaman aşımına uğradı`));
-      }, timeoutMs);
+      }, ms);
       entry = {
         method,
         resolve: (params) => {
@@ -479,16 +651,55 @@ async function run(args, browserPath) {
   const state = { child: null, ws: null, profileDir, done: false };
   activeState = state;
 
+  // REVIEW-2 KUCUK-3: TEK global süre sınırı. Önceki davranışta --timeout-ms
+  // her adıma (DevToolsActivePort, page target, ws açılışı, her CDP send/
+  // waitForEvent) AYRI AYRI, sıfırlanan bir saatle uygulanıyordu — hiçbir TEK
+  // adım aşmasa bile adımların TOPLAMI --timeout-ms'i sessizce aşabiliyordu
+  // (ör. yavaş yüklenen bir sayfa + --wait-ms). Artık run() başında TEK bir
+  // bitiş zamanı (deadline) belirlenir; her adım `remainingMs()`/
+  // `requireTime()` ile KALAN süreyle sınırlanır. Süre aşılırsa açık bir hata
+  // fırlatılır ve normal `finally` → cleanupResources() akışı yine çalışır.
+  const deadline = Date.now() + args.timeoutMs;
+  const remainingMs = () => deadline - Date.now();
+  const requireTime = (label) => {
+    const rem = remainingMs();
+    if (rem <= 0) {
+      throw new Error(`Toplam süre sınırı aşıldı (${label}, --timeout-ms=${args.timeoutMs})`);
+    }
+    return rem;
+  };
+
   try {
+    // REVIEW-1 ONEMLI-2: zoom dosyaları burada, `profileDir` VAR OLDUKTAN
+    // SONRA yazılır — `zoom-source.png` (kaynak PNG kopyası) ve onu
+    // GÖRECELİ yoldan referans alan `zoom.html`; ikisi de profil dizini
+    // silinirken (cleanupResources → removeProfileDir) otomatik temizlenir.
+    // `file://` ile gezinildiği için URL uzunluğu kaynak PNG boyutundan
+    // bağımsızdır (ESKİ base64 `data:` gömme yöntemindeki ~2 MB URL sınırı
+    // artık yok).
+    if (args.zoomMode) {
+      writeFileSync(path.join(profileDir, 'zoom-source.png'), args.zoomBuf);
+      const zoomHtml = buildZoomHtml(
+        args.zoomRegion,
+        args.zoomScale,
+        'zoom-source.png',
+        args.zoomImgWidth,
+        args.zoomImgHeight,
+      );
+      const zoomHtmlPath = path.join(profileDir, 'zoom.html');
+      writeFileSync(zoomHtmlPath, zoomHtml);
+      args.url = pathToFileURL(zoomHtmlPath).href;
+    }
+
     state.child = spawnBrowser(browserPath, profileDir);
     state.child.on('error', () => {
       // Süreç başlatma hatası waitForDevToolsActivePort zaman aşımıyla yakalanır.
     });
 
-    const port = await waitForDevToolsActivePort(profileDir, args.timeoutMs);
+    const port = await waitForDevToolsActivePort(profileDir, requireTime('DevToolsActivePort'));
     console.error(`cdp: port=${port} profil=${profileDir}`);
 
-    const target = await waitForPageTarget(port, args.timeoutMs);
+    const target = await waitForPageTarget(port, requireTime('page hedefi'));
 
     const ws = new WebSocket(target.webSocketDebuggerUrl);
     state.ws = ws;
@@ -497,11 +708,11 @@ async function run(args, browserPath) {
         ws.addEventListener('open', resolve, { once: true });
         ws.addEventListener('error', () => reject(new Error('WebSocket bağlantı hatası')), { once: true });
       }),
-      args.timeoutMs,
+      requireTime('WebSocket açılışı'),
       'WebSocket bağlantısı zaman aşımına uğradı',
     );
 
-    const cdp = new CdpClient(ws, args.timeoutMs);
+    const cdp = new CdpClient(ws, remainingMs);
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', {
@@ -522,7 +733,7 @@ async function run(args, browserPath) {
     const navResult = await cdp.send('Page.navigate', { url: args.url });
     if (navResult.errorText) {
       loadEventPromise.cancel();
-      throw new Error(`Sayfa yüklenemedi: ${navResult.errorText} (${args.url})`);
+      throw new Error(`Sayfa yüklenemedi: ${navResult.errorText} (${formatUrlForError(args.url)})`);
     }
     await loadEventPromise;
 
@@ -534,12 +745,29 @@ async function run(args, browserPath) {
       if (setupResult.exceptionDetails) {
         throw new Error(`--setup hata: ${describeException(setupResult.exceptionDetails)}`);
       }
+      // KUCUK-4 (REVIEW-1): loadEventPromise'daki gibi, reddedilirse
+      // unhandledRejection olmasın diye erkenden .catch() bağlanır — reload
+      // ve loadEventFired aynı deadline'a bağlı olduğundan ikisi aynı anda
+      // zaman aşımına düşebilir; ikinci reddi yakalayan olmazsa süreç
+      // cleanupResources() bitmeden ölebilir (yetim riski).
       const reloadEventPromise = cdp.waitForEvent('Page.loadEventFired');
+      reloadEventPromise.catch(() => {});
       await cdp.send('Page.reload', {});
       await reloadEventPromise;
     }
 
     if (args.waitMs > 0) {
+      // --wait-ms önceden HİÇ sınırlanmıyordu (adım-bazlı tasarımın kör
+      // noktasıydı — sabit bir bekleme, --timeout-ms bütçesine hiç
+      // bakmadan çalışırdı). Artık kalan süre --wait-ms'ten azsa TOPLAM süre
+      // sınırı aşılmış sayılır ve açıkça hata verilir (bekleme hiç
+      // başlamadan).
+      const rem = requireTime('wait-ms bekleme');
+      if (rem < args.waitMs) {
+        throw new Error(
+          `Toplam süre sınırı aşıldı (wait-ms bekleme: kalan ${rem}ms, istenen ${args.waitMs}ms, --timeout-ms=${args.timeoutMs})`,
+        );
+      }
       await sleep(args.waitMs);
     }
 
@@ -593,13 +821,39 @@ async function main() {
     process.exit(0);
   }
 
+  if (args.zoomImage && args.url) {
+    console.error('Hata: --zoom-image ve --url BİRLİKTE verilemez');
+    console.error(HELP);
+    process.exit(2);
+  }
+
+  // REVIEW-1 KUCUK-2: --region/--scale yalnız --zoom-image ile ANLAMLIDIR;
+  // önceden --url moduyla verildiğinde sessizce YUTULUYORDU (denendi: --url
+  // about:blank --region 0,0,10,10 --scale 2 → çıkış 0, 50x40 — kullanıcı
+  // bölgenin uygulandığını sanabilirdi). Artık kullanım hatası.
+  if (!args.zoomImage && (args.region || args.scaleExplicit)) {
+    console.error('Hata: --region/--scale yalnız --zoom-image ile birlikte kullanılabilir');
+    console.error(HELP);
+    process.exit(2);
+  }
+
   const missing = [];
-  if (!args.url) missing.push('--url');
+  if (!args.zoomImage && !args.url) missing.push('--url (ya da --zoom-image)');
   if (!args.out) missing.push('--out');
   if (missing.length > 0) {
     console.error(`Hata: zorunlu parametre eksik: ${missing.join(', ')}`);
     console.error(HELP);
     process.exit(2);
+  }
+
+  if (args.zoomImage) {
+    try {
+      prepareZoom(args);
+    } catch (err) {
+      console.error(`Hata: ${err.message}`);
+      console.error(HELP);
+      process.exit(2);
+    }
   }
 
   const browserPath = findBrowser(args.browser);
@@ -620,7 +874,24 @@ async function main() {
 // Betik doğrudan çalıştırıldığında (`node capture-page.mjs ...`) CLI olarak
 // çalışır; testten `import()` edildiğinde main() ÇALIŞMAZ, yalnız aşağıdaki
 // fonksiyonlar (ör. killByProfileDir) dışa aktarılır.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+//
+// REVIEW-2 KUCUK-4: `process.argv[1]` ile ÇÖZÜLMEMİŞ (symlink/junction'ın
+// kendisi) bir yol karşılaştırılıyordu, ama Node varsayılan olarak
+// (--preserve-symlinks-main verilmedikçe) `import.meta.url`'i ana modülün
+// GERÇEK yolundan üretir. Bu yüzden betik bir junction/symlink üzerinden
+// çağrıldığında iki taraf hiçbir zaman eşleşmiyordu, `main()` HİÇ
+// çağrılmıyordu ve CLI hiçbir hata vermeden sessizce 0 ile çıkıyordu.
+// `realpathSync` ile her iki taraf da çözülerek karşılaştırılır.
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main();
 }
 

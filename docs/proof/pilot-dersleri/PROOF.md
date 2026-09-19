@@ -332,3 +332,12 @@ REVIEW-1'in KUCUK-7 bulgusu: Tur 1 PROOF metninde (satır 29, 128) R1 öznesinin
 2. `node --test .claude/skills/prove-it/scripts/capture-page.test.mjs` — 8/8 PASS, çıkış 0 beklenir (~30 sn; gerçek headless Edge + gerçek yardımcı süreç öldürme testi başlatır).
 3. `node .claude/skills/prove-it/scripts/capture-page.mjs --help` — kullanım metni, çıkış 0 beklenir; argümansız — çıkış 2 beklenir.
 4. Her koşudan önce/sonra `Get-CimInstance Win32_Process | Where-Object CommandLine -match 'capture-page-'` → 0/0 beklenir.
+
+## Düzeltme notu (pilot-dersleri-2)
+
+REVIEW-2 KUCUK-5 (`docs/proof/pilot-dersleri/REVIEW-2.md:26`): yukarıdaki satır 44'teki ("ölçüldü: orijinal PID ~birkaç ms içinde çıkıyor") ifadesi hem REVIEW-1 hem REVIEW-2'nin bağımsız çoğaltmalarında yeniden üretilemedi. Yukarıdaki Tur 1/Tur 2 satırları (bu bölüm dahil olmak üzere yukarısı) DEĞİŞTİRİLMEDİ — bu yalnızca sona eklenen bir düzeltme notudur.
+
+- İfade **gözlemdir** (Yazar'ın geliştirme oturumundaki tek bir çalıştırmadan), yük taşıyan bir ölçüm değildir.
+- İnceleyici çoğaltmasında (`docs/proof/pilot-dersleri/REVIEW-1.md:23`, Fable, Tur 1): "aynı argümanlarla yaptığım çoğaltmada spawn PID 36920 kök tarayıcı olarak **5,2 sn** boyunca hayatta kaldı ve ancak `Stop-Process` ile çıktı" — yani spawn PID saniyenin altında değil, gözlenen bu çoğaltmada 5,2 saniye canlı kaldı.
+- Bu tutarsızlık REVIEW-1'de KUCUK-1 olarak işaretlendi ve `capture-page.mjs:20-27` yorumundaki KESİNLİK dili ("ERKEN EVREDE YENİDEN BAŞLATIR", "saniyenin altında çıkar") Tur 2'de "erken evrede yeniden başlatabilir; spawn PID'ine güvenilmez" olarak zaten yumuşatıldı (bkz. Tur 2 İddia KUCUK-1) — yalnızca bu PROOF.md:44 satırındaki eşdeğer not eksik kalmıştı.
+- **Strateji etkilenmez:** yetim önleme, PID'e değil profil-dizini taramasına (`killByProfileDir`/`countByProfileDir`, `capture-page.mjs:271-320`) dayanıyor; spawn PID'in saniyenin altında mı yoksa 5,2 saniye mi yaşadığı bu stratejinin doğruluğunu değiştirmiyor — her iki durumda da nihai kapatma komut satırındaki profil yoluna göre yapılıyor.
