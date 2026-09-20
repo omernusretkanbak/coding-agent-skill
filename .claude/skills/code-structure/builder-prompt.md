@@ -27,7 +27,9 @@ Yalnız `{WORKTREE_ABS}` altına yaz (dal: `{DAL}`). Dışına dokunma. `git add
 - Önce kırmızı test, sonra kod (superpowers:test-driven-development).
 - Katmanları atlama: Sunum → Servis → Repository.
 - Cerrahi değişiklik; kapsam dışına çıkma; mevcut yardımcıyı kopyalama, kullan.
-- Görsel çıktı değişiyorsa "önce" ekran görüntüsünü KOD DEĞİŞMEDEN al (prove-it).
+- Görsel çıktı değişiyorsa "önce" ekran görüntüsünü KOD DEĞİŞMEDEN al (prove-it); bu, görevin İLK işidir, kodu yazdıktan sonraya bırakma.
+- `git stash` YASAK (yığın depodaki TÜM worktree'lerle ortaktır, başka bir oturumla çakışıp iş kaybettirebilir). "Önce"yi almadan kodu zaten değiştirdiysen tabandan ayrı GEÇİCİ bir worktree aç (`git worktree add --detach <kısa-yol> <taban-sha>`), "önce"yi orada al, sonra kaldır (`git worktree remove <kısa-yol>`).
+- PROOF taslağındaki iddia kutularını (`- [ ]`) BOŞ bırak; işaretlemek orkestratörün işidir — boş kutuyu sen işaretlersen doğrulamayı taklit etmiş olursun.
 
 ## Çıktı sözleşmesi (raporunu tam bu başlıklarla ver)
 

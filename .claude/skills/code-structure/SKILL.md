@@ -19,7 +19,7 @@ description: >-
 
 ## Orkestratör için
 
-Kodu kendin yazma. `Agent(subagent_type: general-purpose, model: sonnet)` ile görevlendir; prompt = `builder-prompt.md`'nin doldurulmuş hali (fork değil, taze bağlam). Alt-ajan bitince: `git diff --stat` ile kapsamı kontrol et; test komutunu KENDİN tekrar çalıştır (alt-ajan raporu kanıt değildir); Mimari Notu'nu oku. Eksik varsa aynı alt-ajana `SendMessage` ile düzelttir; bağlam bozulduysa yeni alt-ajan aç.
+Kodu kendin yazma. `Agent(subagent_type: general-purpose, model: sonnet)` ile görevlendir; prompt = `builder-prompt.md`'nin doldurulmuş hali (fork değil, taze bağlam). Görev metnindeki her olgusal öncülü ("şu dosyada zaten var", "şu desen kullanılıyor", "şu yardımcı mevcut") alt-ajana göndermeden ÖNCE kodda doğrula (`git grep`/okuma); doğrulanmamış öncül yazarı kapsam dışına iter (ör. "koyu tema zaten var" dendi, `git grep prefers-color-scheme` boş döndü). Alt-ajan bitince: `git diff --stat` ile kapsamı kontrol et; test komutunu KENDİN tekrar çalıştır (alt-ajan raporu kanıt değildir); Mimari Notu'nu oku. Eksik varsa aynı alt-ajana `SendMessage` ile düzelttir; bağlam bozulduysa yeni alt-ajan aç.
 
 ## Yazar için (reçete)
 
