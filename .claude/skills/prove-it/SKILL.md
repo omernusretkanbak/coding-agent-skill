@@ -32,8 +32,8 @@ Gözlemlenebilir yüklem: değişiklik ekranı/görsel çıktıyı değiştiriyo
 
 ## Görsel Kanıt Araç Sırası
 
-1. **Web sayfası:** chrome-devtools `take_screenshot` (`filePath`). Kilitliyse ("already running … --isolated") beklemeden `node .claude/skills/prove-it/scripts/capture-page.mjs --url <url> --out <yol>` (headless, sayfa; `--help`).
-2. **Masaüstü uygulaması, SON ÇARE:** `capture-screen.ps1` birincil ekranın TAMAMINI yakalar. Commit'ten önce Read ile aç; özel içerik/ilgisiz pencere varsa sil — yalnız kırpılmış sürüm commit'lenir. Diğer tam ekran yöntemleri aynı risktedir.
+1. **Web sayfası:** `node .claude/skills/prove-it/scripts/capture-page.mjs --url <url> --out <yol>` (headless, yalnız sayfa; `--help`). Bazı ortamlarda tarayıcı/masaüstü kontrolü yasak olabilir (chrome-devtools `take_screenshot` dahil); o zaman yalnız `capture-page.mjs` kullanılır.
+2. **Masaüstü uygulaması, SON ÇARE:** `capture-screen.ps1` birincil ekranın TAMAMINI yakalar; masaüstü kontrolünün yasak olduğu ortamlarda kullanılmaz. Kullanılacaksa commit'ten önce Read ile aç; özel içerik/ilgisiz pencere varsa sil, yalnız kırpılmış sürüm commit'lenir. Diğer tam ekran yöntemleri aynı risktedir.
 3. Uygulama ayakta değilse `preview_start`/`run`.
 
 "Önce" görüntüsü KOD DEĞİŞMEDEN alınır (yoksa `main` worktree'sinde); asla uydurulmaz/sonradan üretilmez.
@@ -52,8 +52,8 @@ PROOF.md HEAD'de; her iddia kanıt referanslı; "Orkestratör doğrulaması" dol
 |---|---|
 | "Testler az önce geçti." | Bu turda tekrar çalıştır; eski çıktı geçersiz. |
 | "Görsel değişiklik ufak." | Ufak da olsa ekran görüntüsü zorunludur. |
-| "Ekran görüntüsü alacak araç yok." | Web: `capture-page.mjs`; masaüstü (SON ÇARE): `capture-screen.ps1`. |
-| "chrome-devtools kilitli; `CopyFromScreen` ile masaüstünü yakalarım." | Tam ekran = ilgisiz pencere + özel içerik; web'de `capture-page.mjs`. |
+| "Ekran görüntüsü alacak araç yok." | Web: `capture-page.mjs` (tarayıcı/masaüstü kontrolünün yasak olduğu ortamda tek yol); masaüstü (SON ÇARE): `capture-screen.ps1`. |
+| "`CopyFromScreen` ile masaüstünü yakalarım." | Masaüstü kontrolü yasak olabilir; tam ekran = ilgisiz pencere + özel içerik; web'de `capture-page.mjs`. |
 | "Uygulama penceresi görünüyor, kabul ettim." | Görüntünün TAMAMI denetlenir; özel içerik varsa ham görüntü commit'lenmez. |
 | "Alt-ajan başarı dedi." | Kendin çalıştır, `git diff`'e bak. |
 | "Kanıtı PR açıklamasına yazarım." | Dosyaya yaz; PR ona link verir. |

@@ -6,7 +6,7 @@ Bu repoda her değişiklik dört istasyondan geçer. Bu dosya yalnız iş akış
 
 1. `main` üzerine doğrudan yazılmaz; her görev kendi worktree'sinde ve dalında yapılır.
 2. Kanıtsız "bitti" yoktur; kanıt `docs/proof/<dal-slug>/PROOF.md` altında yaşar ve kullanıcıya gösterilir.
-3. Kodu her zaman ucuz model (Sonnet) yazar; incelemeyi her zaman en akıllı model (Fable) yapar ve 0–5 puanlar. Orkestratör ne kod yazar ne inceler.
+3. Kodu her zaman ucuz model yazar; incelemeyi her zaman en akıllı model yapar (Claude'da örnek: Sonnet / Fable; diğer araçlarda hızlı/güçlü katman) ve 0–5 puanlar. Orkestratör ne kod yazar ne inceler.
 4. Merge asla ajan tarafından yapılmaz. 5 puanda bile PR bağlantısı sunulur ve durulur; birleştirme kararı kullanıcınındır.
 5. Bu dosya teknoloji yığını veya klasör yapısı anlatmaz; ajan mimariyi kodu okuyarak öğrenir (Adım 2). Bu maddeyi genişleten değişiklikler reddedilir.
 
@@ -16,7 +16,7 @@ Bu repoda her değişiklik dört istasyondan geçer. Bu dosya yalnız iş akış
 |---|---|---|
 | Yazar | `sonnet` | Adım 2–3'te kodu yazar, testleri koşar, PROOF.md taslağını üretir. |
 | İnceleyici | `fable` (yedek `opus`) | Adım 4'te diff + kanıtı inceler, 0–5 puan verir; taze bağlam. |
-| Orkestratör | oturum modeli | Worktree açar, alt-ajanları görevlendirir, kanıtı bağımsız doğrular, PR açar, döngüyü yönetir. |
+| Orkestratör | oturum modeli | Worktree açar, alt-ajanları görevlendirir, kanıtı bağımsız doğrular, kullanıcı onayıyla PR açar, döngüyü yönetir. |
 
 ## Montaj Hattı
 
@@ -39,6 +39,7 @@ SKOR < 5 → ENGELLEYİCİ ve ÖNEMLİ bulgular yeni bir Yazar görevine dönü�
 | code-structure | `.claude/skills/code-structure/SKILL.md` (+ `builder-prompt.md`) | 2 |
 | prove-it | `.claude/skills/prove-it/SKILL.md` (+ `PROOF-template.md`) | 3 |
 | ship-it | `.claude/skills/ship-it/SKILL.md` (+ `reviewer-prompt.md`) | 4 |
+| fabrika | `.claude/skills/fabrika/SKILL.md` (+ `roller/yazar.md`, `roller/inceleyici.md`; Claude Code ajanları `.claude/agents/fabrika-*.md`) | 1–4 orkestrasyonu |
 
 Claude dışı ajanlar bu skill dosyalarını yukarıdaki yollardan düz Markdown olarak okuyup uygular.
 

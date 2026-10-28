@@ -1,4 +1,4 @@
-<!-- Kullanım: Orkestratör bu şablonu doldurur, Agent(subagent_type: general-purpose, model: fable) çağrısına prompt olarak verir. -->
+<!-- Kullanım: Orkestratör bu şablonu doldurur, Agent(subagent_type: fabrika-inceleyici, model: fable) çağrısına (yedek opus; ajan dosyası yoksa general-purpose + aynı model) ya da ajansız ortamda TAZE bir oturuma roller/inceleyici.md ile birlikte prompt olarak verir. -->
 <!-- Yer tutucular: {REVIEWER_MODEL} {BUILDER_MODEL} {DESCRIPTION} {REQUIREMENTS} {PR_NUMBER} {BASE_SHA} {HEAD_SHA} {WORKTREE_ABS} {DAL_SLUG} -->
 <!-- DAL_SLUG = dal adı, `/` → `-` (docs/proof/ altındaki dizin adıyla aynı). -->
 

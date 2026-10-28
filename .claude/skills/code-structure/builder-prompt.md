@@ -1,8 +1,8 @@
-<!-- Orkestratör bu şablonu doldurup Agent(model: sonnet) prompt'u olarak verir. -->
+<!-- Orkestratör bu şablonu doldurup Agent(subagent_type: fabrika-yazar) çağrısına (model sonnet; ajan dosyası yoksa general-purpose + aynı model) ya da ajansız ortamda yeni bir oturuma roller/yazar.md ile birlikte prompt olarak verir. -->
 <!-- Yer tutucular: {GOREV} {KAPSAM_DISI} {WORKTREE_ABS} {DAL} {DAL_SLUG} -->
 <!-- DAL_SLUG = dal adı, `/` → `-` (docs/proof/ altındaki dizin adıyla aynı). -->
 
-Sen bir Yazılım Fabrikası'nın YAZAR alt-ajanısın (model: sonnet). Kodu sen yazarsın; commit, inceleme ve karar orkestratöründür.
+Sen bir Yazılım Fabrikası'nın YAZAR alt-ajanısın (hızlı/ucuz model katmanı; Claude'da `sonnet`). Kodu sen yazarsın; commit, inceleme ve karar orkestratöründür.
 
 ## Çalışma alanı
 

@@ -28,7 +28,7 @@ Her iki arıza da eski şablon yuvasının ("evet"/"hayır" serbest metni) hem e
 ### A1 — KIRMIZI (scratchpad, `kucuk1-demo.mjs`; eski `-like` filtresi)
 Komut: `node kucuk1-demo.mjs` (scratchpad `b2/`)
 ```
-fakeProfileDir: C:\Users\nusre\AppData\Local\Temp\w[1]-kucuk1-demo-1789805012255
+fakeProfileDir: C:\Users\<kullanici>\AppData\Local\Temp\w[1]-kucuk1-demo-1789805012255
 helper PIDs: [ 54568, 39800 ]
 ESKI (-like) sayim: 0 (beklenen 0)
 YENI (.Contains) sayim: 2 (beklenen 2, iki yardimci surec)
@@ -44,10 +44,10 @@ Komut: `node --test --test-name-pattern="toplam süre sınırı" .claude/skills/
 ℹ pass 0
 ℹ fail 1
   AssertionError [ERR_ASSERTION]: beklenen: gecikme (1500ms) + --wait-ms (6000ms) toplamı --timeout-ms'i (6000ms) aşıyor, çıkış 1 olmalı; stderr:
-  profil: C:\Users\nusre\AppData\Local\Temp\capture-page-aXXJTa
-  cdp: port=51339 profil=C:\Users\nusre\AppData\Local\Temp\capture-page-aXXJTa
+  profil: C:\Users\<kullanici>\AppData\Local\Temp\capture-page-aXXJTa
+  cdp: port=51339 profil=C:\Users\<kullanici>\AppData\Local\Temp\capture-page-aXXJTa
   stdout:
-  Kaydedildi: C:\Users\nusre\AppData\Local\Temp\capture-page-test-out-NKEJKG\global-timeout.png (1280x800, 4714 B)
+  Kaydedildi: C:\Users\<kullanici>\AppData\Local\Temp\capture-page-test-out-NKEJKG\global-timeout.png (1280x800, 4714 B)
   0 !== 1
 EXIT:1
 ```
@@ -72,7 +72,7 @@ EXIT:1
 ### A6 — KIRMIZI (scratchpad, `a6-red-demo.mjs`; eski makine-geneli, izole-edilmemiş sayım)
 Komut: `node a6-red-demo.mjs` (scratchpad `b2/`; gerçek bir "yabancı" `capture-page.mjs` çalıştırması — env override'sız, gerçek sistem temp'inde — canlıyken hem eski (makine geneli) hem yeni (kök-taramalı) sorgu koşuluyor)
 ```
-ourRunRoot: C:\Users\nusre\AppData\Local\Temp\capture-page-selftest-AHewmY
+ourRunRoot: C:\Users\<kullanici>\AppData\Local\Temp\capture-page-selftest-AHewmY
 ESKI (makine geneli, A6 ONCESI before/after mantigi) sayim: 16 (beklenen >=1 -- eski assert.equal(...,0) BURADA DUSERDI)
 YENI (runRoot taramali, A6) sayim: 0 (beklenen 0 -- izole, etkilenmedi)
 EXIT:0
