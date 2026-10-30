@@ -1,0 +1,28 @@
+✔ SKILL.md: kişisel/sağlık verisi taşıyan arayüzde çalıştırılmaz sınırı yazılı (ENGELLEYİCİ-1) (1.9297ms)
+✔ SKILL.md: hafif kalır (≤550 sözcük), ağ sınırı dürüst (WebSocket/WebRTC kapsam dışı), eşik ve bekçi iddiası hizalı (ÖNEMLİ-3, KÜÇÜK d/e) (0.6338ms)
+✔ trEsle: Türkçe-bilinçli küçültme + NFC (KATIL→katıl, TERİM→terim, ayrık İ aynı sayılır) (0.4055ms)
+✔ rolCoz: img→image takma adı, büyük/küçük harf duyarsız; bilinmeyen rol olduğu gibi kalır (0.1727ms)
+✔ enYakinAdaylar: en çok 5, en yakın önce, yinelenen yok, Türkçe-bilinçli (1.0845ms)
+✔ yalnizParcaFarki: yalnız #parça farkı (hedefte parça var) aynı belge sayılır; yol/sorgu farkı ya da parça silme sayılmaz (0.2248ms)
+✔ bulgulariGrupla: aynı (tür, şiddet, senaryo, ölçüm) tek satır olur, hücreler ve kimlikler listelenir; farklı ölçüm ayrı kalır (0.4125ms)
+✔ CLI --help: kaydir, --hareket, rol takma adları ve geçerli rol listesi anlatılır (131.7162ms)
+✔ CLI: --hareket geçersiz değer → çıkış 2; kaydir hedefsiz → çıkış 2 (259.8359ms)
+✔ SKILL.md: yeni özellikler kısaca belgelenir (kaydir, --hareket serbest, img→image, Türkçe eşleşme) ve ≤550 sözcük kalır (0.4153ms)
+✔ Türkçe eşleşme: role+name, click metin, assertText ve waitFor büyük/küçük harf (İ/ı) duyarsız (4464.12ms)
+✔ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (14635.1156ms)
+✔ rol takma adı: role "img" (CDP rolü image) görseli bulur (4430.99ms)
+✔ kaydir: hedefi görünüme getirir; sonraki screenshot sayfanın aşağısını alır (kaydirmaY ölçümü) (8765.0844ms)
+✔ kaydir: bulunamayan hedef ENGELLEYİCİ adim-basarisiz olur (sessiz geçmez) (7399.6848ms)
+✔ --hareket: varsayılan reduced-motion zorlar; "serbest" zorlamaz (geçici katmanlar sınanabilir) (8943.7365ms)
+✔ goto #parça: aynı belgede yalnız parça farkı yük olayı beklemeden tamamlanır (kilitlenme/çıkış 3 yok) (4652.1323ms)
+✔ rapor: bulgu yokken bile hücre başına ölçüm özeti satırı olumlu kanıt verir; sonuc.json ölçümleri sayısal (6040.2056ms)
+✔ rapor: aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz; tek satırda hücreler listelenir (sonuc.json ayrıntılı kalır) (5034.5728ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65722.4057
+cikis=0

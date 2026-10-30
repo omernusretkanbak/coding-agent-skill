@@ -880,3 +880,253 @@ test('proxy: loopback proxy\'den muaftır (sınama bozulmaz), loopback dışı t
     await kapat(yerel);
   }
 });
+
+// ---------------------------------------------------------------------------------------------
+// D. PİLOT İYİLEŞTİRMELERİ (iki bağımsız sınayıcının ortak eksikleri)
+// ---------------------------------------------------------------------------------------------
+
+test('trEsle: Türkçe-bilinçli küçültme + NFC (KATIL→katıl, TERİM→terim, ayrık İ aynı sayılır)', () => {
+  assert.equal(typeof mod?.trEsle, 'function', 'trEsle dışa aktarılmalı');
+  assert.equal(mod.trEsle('KATIL'), 'katıl');
+  assert.equal(mod.trEsle('TERİM'), 'terim');
+  assert.equal(mod.trEsle('TERİM'), 'terim', 'ayrık (I + birleşik nokta) İ, NFC ile tek İ olur');
+  assert.equal(mod.trEsle('  Çok   Boşluk\n'), 'çok boşluk');
+  assert.equal(mod.trEsle(undefined), '');
+  assert.equal(mod.trEsle('Katıl'), mod.trEsle('KATIL'));
+  assert.notEqual(mod.trEsle('KATIL'), 'katil', 'ASCII küçültme (katil) YANLIŞ olurdu');
+});
+
+test('rolCoz: img→image takma adı, büyük/küçük harf duyarsız; bilinmeyen rol olduğu gibi kalır', () => {
+  assert.equal(typeof mod?.rolCoz, 'function', 'rolCoz dışa aktarılmalı');
+  assert.equal(mod.rolCoz('img'), 'image');
+  assert.equal(mod.rolCoz('IMG'), 'image');
+  assert.equal(mod.rolCoz('Button'), 'button');
+  assert.equal(mod.rolCoz('image'), 'image');
+});
+
+test('enYakinAdaylar: en çok 5, en yakın önce, yinelenen yok, Türkçe-bilinçli', () => {
+  assert.equal(typeof mod?.enYakinAdaylar, 'function', 'enYakinAdaylar dışa aktarılmalı');
+  const adaylar = ['Kapat', 'Giriş', 'KATIL', 'Kaydol', 'Ara', 'Sepet', 'Yardım', 'İletişim', 'Katıl'];
+  const r = mod.enYakinAdaylar('Katılım', adaylar);
+  assert.ok(r.length <= 5 && r.length >= 1);
+  assert.equal(mod.trEsle(r[0]), 'katıl', `en yakın ilk sırada olmalı: ${r.join('|')}`);
+  assert.equal(new Set(r.map(mod.trEsle)).size, r.length, 'aynı ad (büyük/küçük harf farkıyla) yinelenmemeli');
+  assert.deepEqual(mod.enYakinAdaylar('x', []), []);
+});
+
+test('yalnizParcaFarki: yalnız #parça farkı (hedefte parça var) aynı belge sayılır; yol/sorgu farkı ya da parça silme sayılmaz', () => {
+  assert.equal(typeof mod?.yalnizParcaFarki, 'function', 'yalnizParcaFarki dışa aktarılmalı');
+  const T = 'http://127.0.0.1:5000';
+  assert.equal(mod.yalnizParcaFarki(`${T}/`, `${T}/#alt`), true);
+  assert.equal(mod.yalnizParcaFarki(`${T}/#ust`, `${T}/#alt`), true);
+  assert.equal(mod.yalnizParcaFarki(`${T}/a?x=1#p`, `${T}/a?x=1#q`), true);
+  assert.equal(mod.yalnizParcaFarki(`${T}/#alt`, `${T}/`), false, 'parça silme tam gezinmedir');
+  assert.equal(mod.yalnizParcaFarki(`${T}/`, `${T}/baska#alt`), false);
+  assert.equal(mod.yalnizParcaFarki(`${T}/a?x=1`, `${T}/a?x=2#p`), false);
+  assert.equal(mod.yalnizParcaFarki('about:blank', `${T}/#alt`), false);
+  assert.equal(mod.yalnizParcaFarki('', `${T}/#alt`), false);
+});
+
+test('bulgulariGrupla: aynı (tür, şiddet, senaryo, ölçüm) tek satır olur, hücreler ve kimlikler listelenir; farklı ölçüm ayrı kalır', () => {
+  assert.equal(typeof mod?.bulgulariGrupla, 'function', 'bulgulariGrupla dışa aktarılmalı');
+  const b = (id, hucre, olcum, tur = 'konsol-hatasi') => ({ id, tur, siddet: 'ÖNEMLİ', senaryo: 's', hucre, mesaj: `m-${tur}`, olcum, kare: `kareler/${hucre}.png` });
+  const g = mod.bulgulariGrupla([
+    b('F1', '390x844-acik', { sayi: 1 }), b('F2', '390x844-koyu', { sayi: 1 }), b('F3', '1280x800-acik', { sayi: 1 }),
+    b('F4', '390x844-acik', { scrollWidth: 500 }, 'yatay-tasma'), b('F5', '1280x800-acik', { scrollWidth: 1500 }, 'yatay-tasma'),
+  ]);
+  assert.equal(g.length, 3, JSON.stringify(g));
+  const konsol = g.find((x) => x.tur === 'konsol-hatasi');
+  assert.deepEqual(konsol.ids, ['F1', 'F2', 'F3']);
+  assert.deepEqual(konsol.hucreler, ['390x844-acik', '390x844-koyu', '1280x800-acik']);
+  assert.equal(konsol.kare, 'kareler/390x844-acik.png', 'ilk bulgunun karesi');
+  assert.equal(g.filter((x) => x.tur === 'yatay-tasma').length, 2, 'ölçümü farklı olan gruplanmaz');
+});
+
+test('CLI --help: kaydir, --hareket, rol takma adları ve geçerli rol listesi anlatılır', async () => {
+  const r = await kos(['--help']);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /\bkaydir\b/);
+  assert.match(r.stdout, /--hareket/);
+  assert.match(r.stdout, /serbest/);
+  assert.match(r.stdout, /\bimg\b[^\n]*\bimage\b|\bimage\b[^\n]*\bimg\b/, 'img→image takma adı yazılmalı');
+  for (const rol of ['button', 'link', 'textbox', 'heading', 'dialog', 'navigation']) assert.match(r.stdout, new RegExp(`\\b${rol}\\b`), `rol listesi: ${rol}`);
+  assert.match(r.stdout, /Türkçe/, 'Türkçe-bilinçli eşleşme anlatılmalı');
+});
+
+test('CLI: --hareket geçersiz değer → çıkış 2; kaydir hedefsiz → çıkış 2', async () => {
+  const sen = yaz('d/hareket-gecersiz.json', MIN_SENARYO);
+  const r1 = await kos(['--senaryo', sen, '--sun', path.join(FIXTURES, 'pilot'), '--out', path.join(tmpDir, 'd-o1'), '--hareket', 'hizli']);
+  assert.equal(r1.status, 2, r1.stderr);
+  assert.match(r1.stderr, /--hareket/);
+  const hedefsiz = yaz('d/kaydir-hedefsiz.json', { ad: 'k', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'kaydir' }] });
+  const r2 = await kos(['--senaryo', hedefsiz, '--sun', path.join(FIXTURES, 'pilot'), '--out', path.join(tmpDir, 'd-o2')]);
+  assert.equal(r2.status, 2, r2.stderr);
+  assert.match(r2.stderr, /hedef/);
+  assert.doesNotMatch(r2.stderr, /bilinmeyen adım türü/, 'kaydir bilinen bir adım türü olmalı (yalnız hedef eksik)');
+});
+
+test('SKILL.md: yeni özellikler kısaca belgelenir (kaydir, --hareket serbest, img→image, Türkçe eşleşme) ve ≤550 sözcük kalır', () => {
+  assert.match(SKILL_MD, /\bkaydir\b/);
+  assert.match(SKILL_MD, /--hareket/);
+  assert.match(SKILL_MD, /\bimg\b[^\n]*\bimage\b/);
+  assert.match(SKILL_MD, /Türkçe/);
+  assert.ok(sozcukSayisi(SKILL_MD) <= 550, `SKILL.md ${sozcukSayisi(SKILL_MD)} sözcük`);
+});
+
+const PILOT = path.join(FIXTURES, 'pilot');
+const TEK = ['--matris', '1280x800', '--tema', 'acik'];
+
+test('Türkçe eşleşme: role+name, click metin, assertText ve waitFor büyük/küçük harf (İ/ı) duyarsız', B_ATLA, async () => {
+  const sen = yaz('d/turkce.json', {
+    ad: 'turkce-eslesme',
+    adimlar: [
+      { adim: 'goto', url: '/' },
+      { adim: 'assertVisible', role: 'button', name: 'KATIL' },
+      { adim: 'assertVisible', role: 'button', name: 'katıl' },
+      { adim: 'assertVisible', role: 'button', name: 'iletişim' },
+      { adim: 'assertVisible', role: 'button', name: 'İLETİŞİM' },
+      { adim: 'click', role: 'button', name: 'KATIL' },
+      { adim: 'click', metin: 'KATIL' },
+      { adim: 'assertText', metin: 'terim' },
+      { adim: 'assertText', metin: 'TERİM' },
+      { adim: 'waitFor', metin: 'tErİm', zamanAsimiMs: 1000 },
+      { adim: 'waitFor', role: 'heading', name: 'terim', zamanAsimiMs: 1000 },
+    ],
+  });
+  const { r, sonuc } = await calis('turkce', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(r.status, 0, `stderr:\n${r.stderr}\n${JSON.stringify(sonuc?.matris?.[0]?.adimlar, null, 1)}`);
+  assert.ok(sonuc.matris[0].adimlar.every((a) => a.durum === 'gecti'), JSON.stringify(sonuc.matris[0].adimlar));
+});
+
+test('bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler', B_ATLA, async () => {
+  const sen = yaz('d/aday.json', {
+    ad: 'aday-listesi',
+    adimlar: [{ adim: 'goto', url: '/' }, { adim: 'click', role: 'button', name: 'Katilim' }],
+  });
+  const { r, sonuc } = await calis('aday', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(r.status, 1, r.stderr);
+  const mesaj = sonuc.matris[0].adimlar[1].mesaj;
+  assert.match(mesaj, /hedef bulunamadı/);
+  assert.match(mesaj, /en yakın/i);
+  const adaylar = (mesaj.split(/en yakın/i)[1].match(/"[^"]+"/g) ?? []).map((x) => mod.trEsle(x.slice(1, -1)));
+  assert.equal(adaylar[0], 'katıl', `en yakın aday Katıl olmalı (CSS büyük harf: KATIL olabilir): ${mesaj}`);
+  assert.ok(adaylar.length >= 1 && adaylar.length <= 5, `aday sayısı ${adaylar.length}: ${mesaj}`);
+  const metinli = yaz('d/aday-metin.json', { ad: 'aday-metin', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'click', metin: 'Sepeti' }] });
+  const m = await calis('aday-metin', ['--senaryo', metinli, '--sun', PILOT, ...TEK]);
+  const metinAday = (m.sonuc.matris[0].adimlar[1].mesaj.split(/en yakın/i)[1] ?? '').match(/"[^"]+"/g) ?? [];
+  assert.equal(mod.trEsle((metinAday[0] ?? '').slice(1, -1)), 'sepet', m.sonuc.matris[0].adimlar[1].mesaj);
+});
+
+test('rol takma adı: role "img" (CDP rolü image) görseli bulur', B_ATLA, async () => {
+  const sen = yaz('d/img.json', {
+    ad: 'img-takma-adi',
+    adimlar: [{ adim: 'goto', url: '/' }, { adim: 'assertVisible', role: 'img', name: 'logo görseli' }, { adim: 'assertVisible', role: 'image', name: 'Logo görseli' }],
+  });
+  const { r, sonuc } = await calis('img', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(r.status, 0, `stderr:\n${r.stderr}\n${JSON.stringify(sonuc?.matris?.[0]?.adimlar)}`);
+});
+
+test('kaydir: hedefi görünüme getirir; sonraki screenshot sayfanın aşağısını alır (kaydirmaY ölçümü)', B_ATLA, async () => {
+  const sen = yaz('d/kaydir.json', {
+    ad: 'kaydir-adimi',
+    adimlar: [
+      { adim: 'goto', url: '/' },
+      { adim: 'kaydir', metin: 'Alt bölüm' },
+      { adim: 'screenshot', ad: 'alt-bolum' },
+      { adim: 'kaydir', role: 'heading', name: 'Pilot sayfa' },
+      { adim: 'assertVisible', role: 'heading', name: 'Pilot sayfa' },
+    ],
+  });
+  const { r, out, sonuc } = await calis('kaydir', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(r.status, 0, `stderr:\n${r.stderr}\n${JSON.stringify(sonuc?.matris?.[0]?.adimlar)}`);
+  assert.ok(sonuc.matris[0].adimlar.every((a) => a.durum === 'gecti'));
+  assert.ok(existsSync(path.join(out, 'kareler', 'kaydir-adimi_1280x800-acik_alt-bolum.png')));
+  // son adım başa döndü; aşağıdaki ölçümü ayrı senaryoyla doğrula
+  const asagida = yaz('d/kaydir-asagida.json', {
+    ad: 'kaydir-asagida',
+    adimlar: [{ adim: 'goto', url: '/' }, { adim: 'kaydir', metin: 'Alt bölüm' }],
+  });
+  const k = await calis('kaydir2', ['--senaryo', asagida, '--sun', PILOT, ...TEK]);
+  assert.equal(k.r.status, 0, k.r.stderr);
+  assert.ok(k.sonuc.matris[0].olcumler.kaydirmaY > 1000, `kaydirmaY=${k.sonuc.matris[0].olcumler.kaydirmaY}`);
+});
+
+test('kaydir: bulunamayan hedef ENGELLEYİCİ adim-basarisiz olur (sessiz geçmez)', B_ATLA, async () => {
+  const sen = yaz('d/kaydir-yok.json', { ad: 'kaydir-yok', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'kaydir', metin: 'Olmayan bölüm' }] });
+  const { r, sonuc } = await calis('kaydir-yok', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(r.status, 1, r.stderr);
+  assert.equal(sonuc.matris[0].adimlar[1].durum, 'basarisiz');
+});
+
+test('--hareket: varsayılan reduced-motion zorlar; "serbest" zorlamaz (geçici katmanlar sınanabilir)', B_ATLA, async () => {
+  const sen = yaz('d/hareket.json', {
+    ad: 'hareket-kipi',
+    adimlar: [{ adim: 'goto', url: '/' }, { adim: 'assertText', metin: 'Sakin mod' }],
+  });
+  const v = await calis('hareket-varsayilan', ['--senaryo', sen, '--sun', PILOT, ...TEK]);
+  assert.equal(v.r.status, 0, v.r.stderr);
+  assert.equal(v.sonuc.matris[0].olcumler.azaltilmisHareket, true);
+  assert.equal(v.sonuc.ayarlar.hareket, 'azalt');
+  const serbest = yaz('d/hareket-serbest.json', {
+    ad: 'hareket-kipi',
+    adimlar: [{ adim: 'goto', url: '/' }, { adim: 'waitFor', metin: 'Hoş geldiniz', zamanAsimiMs: 2000 }],
+  });
+  const s = await calis('hareket-serbest', ['--senaryo', serbest, '--sun', PILOT, ...TEK, '--hareket', 'serbest']);
+  assert.equal(s.r.status, 0, `stderr:\n${s.r.stderr}\n${JSON.stringify(s.sonuc?.matris?.[0]?.adimlar)}`);
+  assert.equal(s.sonuc.matris[0].olcumler.azaltilmisHareket, false, 'serbest kipte prefers-reduced-motion zorlanmamalı');
+  assert.equal(s.sonuc.ayarlar.hareket, 'serbest');
+});
+
+test('goto #parça: aynı belgede yalnız parça farkı yük olayı beklemeden tamamlanır (kilitlenme/çıkış 3 yok)', B_ATLA, async () => {
+  const sen = yaz('d/hash.json', {
+    ad: 'hash-gezinme',
+    adimlar: [
+      { adim: 'goto', url: '/' },
+      { adim: 'goto', url: '/#alt' },
+      { adim: 'assertVisible', role: 'heading', name: 'Alt bölüm' },
+      { adim: 'goto', url: '/#ust' },
+      { adim: 'goto', url: '/#ust' },
+      { adim: 'goto', url: '/' },
+      { adim: 'assertVisible', role: 'heading', name: 'Pilot sayfa' },
+    ],
+  });
+  const { r, sonuc } = await calis('hash', ['--senaryo', sen, '--sun', PILOT, ...TEK, '--timeout-ms', '45000']);
+  assert.equal(r.status, 0, `stderr:\n${r.stderr}\n${JSON.stringify(sonuc?.matris?.[0]?.adimlar)}`);
+  assert.ok(sonuc.matris[0].adimlar.every((a) => a.durum === 'gecti'), JSON.stringify(sonuc.matris[0].adimlar));
+});
+
+test('rapor: bulgu yokken bile hücre başına ölçüm özeti satırı olumlu kanıt verir; sonuc.json ölçümleri sayısal', B_ATLA, async () => {
+  const sen = yaz('d/ozet.json', { ad: 'olcum-ozeti', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'screenshot', ad: 'acilis' }] });
+  const { r, out, sonuc } = await calis('ozet', ['--senaryo', sen, '--sun', PILOT, '--matris', '390x844,1280x800', '--tema', 'acik,koyu']);
+  assert.equal(r.status, 0, `stderr:\n${r.stderr}\n${JSON.stringify(sonuc?.bulgular)}`);
+  assert.deepEqual(sonuc.bulgular, []);
+  for (const h of sonuc.matris) {
+    const o = h.olcumler;
+    for (const alan of ['scrollWidth', 'clientWidth', 'konsolHata', 'agHata', 'disIstek', 'odaklanabilir', 'odakGorunen']) {
+      assert.equal(typeof o[alan], 'number', `${h.hucre}: olcumler.${alan} sayı olmalı (${JSON.stringify(o)})`);
+    }
+    assert.ok(o.odaklanabilir > 0 && o.odakGorunen === o.odaklanabilir, `${h.hucre}: odak ${o.odakGorunen}/${o.odaklanabilir}`);
+  }
+  const rapor = readFileSync(path.join(out, 'RAPOR.md'), 'utf8');
+  assert.match(rapor, /Bulgu yok\./);
+  assert.match(rapor, /## Ölçüm özeti/);
+  assert.doesNotMatch(rapor, /\{\{/);
+  const ozet = rapor.split('## Ölçüm özeti')[1].split('\n## ')[0];
+  for (const hucre of sonuc.matris.map((h) => h.hucre)) {
+    assert.ok(ozet.split('\n').some((l) => l.startsWith(`| ${hucre} |`)), `${hucre} için özet satırı yok:\n${ozet}`);
+  }
+  assert.match(ozet, /scrollWidth/i);
+});
+
+test('rapor: aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz; tek satırda hücreler listelenir (sonuc.json ayrıntılı kalır)', B_ATLA, async () => {
+  const sen = yaz('d/grup.json', { ad: 'gruplama', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'screenshot', ad: 'acilis' }] });
+  const { r, out, sonuc } = await calis('grup', ['--senaryo', sen, '--sun', path.join(FIXTURES, 'kusurlu'), '--matris', '1280x800', '--tema', 'acik,koyu']);
+  assert.equal(r.status, 1, r.stderr);
+  const konsolJson = sonuc.bulgular.filter((b) => b.tur === 'konsol-hatasi');
+  assert.equal(konsolJson.length, 2, 'sonuc.json hücre başına ayrıntılı kalır');
+  const rapor = readFileSync(path.join(out, 'RAPOR.md'), 'utf8');
+  const tablo = rapor.split('\n').filter((l) => l.startsWith('|') && / konsol-hatasi /.test(l));
+  assert.equal(tablo.length, 1, `konsol-hatasi tek satır olmalı:\n${tablo.join('\n')}`);
+  assert.match(tablo[0], /1280x800-acik, 1280x800-koyu/);
+  assert.match(tablo[0], new RegExp(konsolJson.map((b) => b.id).join(', ')));
+});

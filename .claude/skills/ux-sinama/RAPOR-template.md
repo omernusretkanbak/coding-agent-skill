@@ -3,7 +3,7 @@
 > Bu dosya `senaryo-kos.mjs` tarafından `sonuc.json`'dan üretilir; elle düzenlenmez. Sınayıcı yalnız gözlemler: kod değiştirmez; düzeltmeyi yazar yapar (öneri bulgu başına en çok bir cümledir).
 
 - **Hedef:** {{hedef}}
-- **Matris:** {{matris}} · tema: {{tema}} · tekrar: {{tekrar}}
+- **Matris:** {{matris}} · tema: {{tema}} · hareket: {{hareket}} · tekrar: {{tekrar}}
 - **Koşu tamamlandı mı:** {{tamamlandi}}
 - **Özet:** ENGELLEYİCİ {{engelleyici}} · ÖNEMLİ {{onemli}} · KÜÇÜK {{kucuk}}
 - **Karar:** {{karar}}
@@ -29,6 +29,12 @@ Tekrarlar arasında farklı çıkan hücreler ürün bulgusu SAYILMAZ; önce sen
 ## Matris hücreleri
 
 {{matris_tablosu}}
+
+## Ölçüm özeti (hücre başına)
+
+"Bulgu yok" olumlu kanıtla görünsün diye her hücrenin son ölçümü: taşma, odak, dokunmatik hedef (yalnız ≤480 px) ve olay sayıları.
+
+{{olcum_ozeti}}
 
 ## Ölçüm uyarıları
 
