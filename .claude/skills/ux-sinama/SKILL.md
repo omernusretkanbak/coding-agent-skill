@@ -6,7 +6,7 @@ description: >-
   separate from the writer, probes the interface in a headless browser with
   scenario steps and produces a findings report. Keywords: UX sınama, arayüz
   testi, senaryo, sınayıcı, erişilebilirlik, yatay taşma, dokunmatik hedef,
-  odak, karanlık tema, ux-sinama. Observes only: never edits code, never
+  odak, karanlık tema, mobil görünüm. Observes only: never edits code or
   touches non-local sites.
 ---
 
@@ -29,7 +29,7 @@ Sınayıcı yazardan AYRI roldür (ayrı oturum/alt-ajan).
 
 1. Görev tanımından kullanıcı yolculuklarını (en çok 6 senaryo) ve beklentileri yaz.
 2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri, alanlar, geçerli roller `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`; eşleşme Türkçe-bilinçli ve büyük/küçük harf duyarsızdır (KATIL = katıl); `img` rolü `image` olur. Sayfanın aşağısı için `kaydir`, sonra `screenshot`. Sahte değer kullan.
-3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (ya da `--url http://127.0.0.1:<port>/`). `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz. `--hareket serbest`: reduced-motion zorlanmaz, geçici karşılama/modal sınanır. Seçenekler, çıkış kodları `--help`'te.
+3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (ya da `--url http://127.0.0.1:<port>/`). `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz. `--hareket serbest`: reduced-motion zorlanmaz, geçici karşılama/modal sınanır. Ayrıntı `--help`'te.
 4. `RAPOR.md` ölçüm özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.
 5. Çıktılar yazarın PROOF'una (`docs/proof/<dal-slug>/`) bağlanır. ENGELLEYİCİ/ÖNEMLİ bulgu yazara döner; düzeltmeden sonra yeniden koşulur.
 

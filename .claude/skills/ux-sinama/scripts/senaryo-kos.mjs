@@ -355,6 +355,12 @@ function duzenlemeUzakligi(a, b) {
   return onceki[b.length];
 }
 
+/** Aday adı mesajda gösterileceği biçime (en çok 50 karakter + "…") kısaltır; tekrar uygulanınca değişmez. */
+export function adayKisalt(ad) {
+  const t = String(ad ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > 50 ? `${t.slice(0, 50)}…` : t;
+}
+
 /** Aranan ada en yakın en çok `enCok` aday adı döndürür (yinelenenler Türkçe-bilinçli tekilleştirilir). */
 export function enYakinAdaylar(aranan, adaylar, enCok = 5) {
   const a = sadelestir(trEsle(aranan)).slice(0, 80);
@@ -368,7 +374,7 @@ export function enYakinAdaylar(aranan, adaylar, enCok = 5) {
     const k = sadelestir(anahtar).slice(0, 80);
     const icerir = k.length >= 2 && a.length >= 2 && (k.includes(a) || a.includes(k));
     const uzaklik = icerir ? Math.abs(k.length - a.length) / 2 : duzenlemeUzakligi(a, k);
-    puanli.push({ ad: ad.length > 50 ? `${ad.slice(0, 50)}…` : ad, uzaklik, sira: puanli.length });
+    puanli.push({ ad: adayKisalt(ad), uzaklik, sira: puanli.length });
   }
   return puanli.sort((x, y) => x.uzaklik - y.uzaklik || x.sira - y.sira).slice(0, enCok).map((x) => x.ad);
 }
@@ -1129,7 +1135,8 @@ async function yakinAdayEki(ctx, st) {
     const r = await cdp.send('Runtime.evaluate', { expression: `(${metinAdaylari.toString()})()`, returnByValue: true });
     adaylar = Array.isArray(r.result?.value) ? r.result.value : [];
   }
-  const temiz = adaylar.filter((ad) => yasakTara({ dosyalar: [{ ad: 'aday', metin: ad }], ozel: ctx.ozel ?? [] }).length === 0);
+  // Önce mesajda görünecek biçime kes, SONRA süz: kesim bir sayıyı 11 haneye indirebilir (çıktıya giren metin taranır).
+  const temiz = adaylar.map(adayKisalt).filter((ad) => yasakTara({ dosyalar: [{ ad: 'aday', metin: ad }], ozel: ctx.ozel ?? [] }).length === 0);
   const yakin = enYakinAdaylar(aranan, temiz, 5);
   if (yakin.length) ek += `; sayfadaki en yakın adaylar${kapsam}: ${yakin.map((x) => `"${x}"`).join(', ')}`;
   return ek;

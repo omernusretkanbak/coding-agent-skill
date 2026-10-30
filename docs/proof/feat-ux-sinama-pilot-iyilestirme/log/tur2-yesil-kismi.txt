@@ -1,0 +1,15 @@
+✔ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (14255.8858ms)
+✔ aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil) (7021.0527ms)
+✔ aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır (7086.8298ms)
+✔ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (7070.7383ms)
+✔ enYakinAdaylar: uzun ad 50 karaktere kesilip "…" alır; kesme tekrar uygulanınca değişmez (1.203ms)
+✔ trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC'siz karşılaştırma bunu ayırt edemezdi (0.1527ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36344.6164
+cikis=0

@@ -1130,3 +1130,58 @@ test('rapor: aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz; tek
   assert.match(tablo[0], /1280x800-acik, 1280x800-koyu/);
   assert.match(tablo[0], new RegExp(konsolJson.map((b) => b.id).join(', ')));
 });
+
+// --- Tur 2: aday adların yasak desen süzmesi (çıktı bekçisini tetikleyip koşuyu çıkış 2'ye düşürmemeli) ---
+// --url kipi: sayfa içeriği girdi bekçisince taranmaz, yalnız ÇIKTI bekçisi çalışır. Süzme olmasaydı aday adlardaki
+// numara/e-posta mesaja girer, çıktı bekçisi sonuc.json'u yazdırmaz (çıkış 2) ve test kırmızı olur.
+async function adayVakasi(ad, butonlar, ekArgs = []) {
+  const sunucu = sayfaSunucusu(butonlar.map((b) => `<button type="button">${b}</button>`).join(' '));
+  await dinle(sunucu);
+  try {
+    const sen = yaz(`t2/${ad}.json`, { ad, adimlar: [{ adim: 'goto', url: '/' }, { adim: 'click', role: 'button', name: 'Olmayan' }] });
+    const c = await calis(ad, ['--senaryo', sen, '--url', `http://127.0.0.1:${sunucu.address().port}/`, '--matris', '1280x800', '--tema', 'acik', ...ekArgs]);
+    return { ...c, mesaj: c.sonuc?.matris?.[0]?.adimlar?.[1]?.mesaj ?? '' };
+  } finally {
+    await kapat(sunucu);
+  }
+}
+
+test('aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil)', B_ATLA, async () => {
+  const { r, sonuc, mesaj } = await adayVakasi('aday-hassas', ['Ara 0532 123 45 67', 'ayse.yilmaz@example.com Gönder', 'TC 12345678901', 'Tamam']);
+  assert.equal(r.status, 1, `çıkış 1 olmalı (2 = aday süzmesi yok, çıktı bekçisi tetiklendi):\n${r.stderr}`);
+  assert.ok(sonuc, 'sonuc.json yazılmalı');
+  assert.match(mesaj, /hedef bulunamadı/);
+  assert.doesNotMatch(mesaj, /0532|123 45 67|ayse\.yilmaz|example\.com|12345678901/, `hassas aday sızdı: ${mesaj}`);
+  assert.match(mesaj, /"Tamam"/, `temiz aday listelenmeli: ${mesaj}`);
+});
+
+test('aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır', B_ATLA, async () => {
+  const desen = yaz('t2/aday-desen.txt', 'GIZLIPROJE\n');
+  const { r, sonuc, mesaj } = await adayVakasi('aday-ozel', ['GIZLIPROJE paneli', 'Tamam'], ['--yasak-desen', desen]);
+  assert.equal(r.status, 1, r.stderr);
+  assert.ok(sonuc, 'sonuc.json yazılmalı');
+  assert.doesNotMatch(mesaj, /GIZLIPROJE/);
+  assert.match(mesaj, /"Tamam"/);
+});
+
+test('aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz)', B_ATLA, async () => {
+  // 39 x + 12 hane: tam ad 11 haneli sayı içermez (12 hane), 50 karakterlik kesik ise tam 11 hane taşır.
+  const uzun = `${'x'.repeat(39)}123456789012`;
+  const { r, sonuc, mesaj } = await adayVakasi('aday-kesim', [uzun, 'Tamam']);
+  assert.equal(r.status, 1, `kesik ad sızdı → çıktı bekçisi (çıkış 2):\n${r.stderr}`);
+  assert.ok(sonuc, 'sonuc.json yazılmalı');
+  assert.doesNotMatch(mesaj, /12345678901/, `kesik ad sızdı: ${mesaj}`);
+  assert.match(mesaj, /"Tamam"/);
+});
+
+test('enYakinAdaylar: uzun ad 50 karaktere kesilip "…" alır; kesme tekrar uygulanınca değişmez', () => {
+  const uzun = 'a'.repeat(60);
+  const [kesik] = mod.enYakinAdaylar('a', [uzun]);
+  assert.equal(kesik, `${'a'.repeat(50)}…`);
+  assert.deepEqual(mod.enYakinAdaylar('a', [kesik]), [kesik]);
+});
+
+test('trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC\'siz karşılaştırma bunu ayırt edemezdi', () => {
+  assert.equal(mod.trEsle('Çok'), 'çok');
+  assert.equal(mod.trEsle('ŞEKER'), 'şeker');
+});

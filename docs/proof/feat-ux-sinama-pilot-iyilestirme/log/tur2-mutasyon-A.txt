@@ -1,0 +1,105 @@
+✔ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (14198.3379ms)
+✖ aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil) (6873.8289ms)
+✖ aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır (6978.8584ms)
+✖ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (6973.6937ms)
+✔ trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC'siz karşılaştırma bunu ayırt edemezdi (0.7486ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 2
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35960.8068
+
+✖ failing tests:
+
+test at scripts\senaryo-kos.selftest.mjs:1149:1
+✖ aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil) (6873.8289ms)
+  AssertionError [ERR_ASSERTION]: çıkış 1 olmalı (2 = aday süzmesi yok, çıktı bekçisi tetiklendi):
+  profil: ux-sinama-ekYSpG
+  cdp: port=59859 profil=ux-sinama-ekYSpG
+  hücre: 1280x800-acik
+  Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.
+    sonuc.json:35  desen=on-bir-hane
+    sonuc.json:35  desen=tr-cep
+    sonuc.json:35  desen=eposta
+    sonuc.json:64  desen=on-bir-hane
+    sonuc.json:64  desen=tr-cep
+    sonuc.json:64  desen=eposta
+    RAPOR.md:19  desen=on-bir-hane
+    RAPOR.md:19  desen=tr-cep
+    RAPOR.md:19  desen=eposta
+  1 kare silindi.
+  Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.
+  
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/mut-cas-ux-A/scripts/senaryo-kos.selftest.mjs:1151:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at scripts\senaryo-kos.selftest.mjs:1158:1
+✖ aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır (6978.8584ms)
+  AssertionError [ERR_ASSERTION]: profil: ux-sinama-QK9HVY
+  cdp: port=53969 profil=ux-sinama-QK9HVY
+  hücre: 1280x800-acik
+  Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.
+    sonuc.json:35  desen=ozel:1
+    sonuc.json:64  desen=ozel:1
+    RAPOR.md:19  desen=ozel:1
+  1 kare silindi.
+  Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.
+  
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/mut-cas-ux-A/scripts/senaryo-kos.selftest.mjs:1161:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at scripts\senaryo-kos.selftest.mjs:1167:1
+✖ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (6973.6937ms)
+  AssertionError [ERR_ASSERTION]: kesik ad sızdı → çıktı bekçisi (çıkış 2):
+  profil: ux-sinama-W94hAp
+  cdp: port=59926 profil=ux-sinama-W94hAp
+  hücre: 1280x800-acik
+  Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.
+    sonuc.json:35  desen=on-bir-hane
+    sonuc.json:64  desen=on-bir-hane
+    RAPOR.md:19  desen=on-bir-hane
+  1 kare silindi.
+  Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.
+  
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/mut-cas-ux-A/scripts/senaryo-kos.selftest.mjs:1171:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+cikis=1

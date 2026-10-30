@@ -64,3 +64,51 @@ Zeki, 2026-10-30, kendi koşusu:
 1. Bu turun commit'ini checkout et (SHA: REVIEW-<n>.md başlığı / PR head'i).
 2. `UX_SINAMA_TARAYICI_ZORUNLU=1 node .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` (Node >= 22, Edge/Chrome gerekir; ~3 dk).
 3. Elle: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --help` (kaydir, --hareket, roller, takma ad); `--senaryo <json> --sun .claude/skills/ux-sinama/fixtures/pilot --out <dizin>` ile örnek koşu.
+
+## Tur 2
+
+Aralık: e2bed7c..bu turun commit'i (Fable tur 1 skoru 4; düzeltmeler).
+
+### İddia
+- [x] 1. Aday adların yasak desen süzmesi test altında: telefon, e-posta, 11 haneli sayı ve `--yasak-desen` özel deseni taşıyan düğme adları hata mesajına girmez; `--url` kipinde koşu çıkış 1 ile biter ve `sonuc.json` yazılır (çıkış 2 değil). Süzme `const temiz = adaylar;` mutantında kırmızıya düşer.
+- [x] 2. Aday ad önce 50 karaktere kesilir (`adayKisalt`), SONRA yasak desenlerden süzülür; kesim bir sayıyı 11 haneye indirdiğinde sızmaz.
+- [x] 3. `trEsle` NFC adımı test altında (`C` + birleşik çengel → `çok`); NFC'siz mutant kırmızı.
+- [x] 4. `SKILL.md` description'a "mobil görünüm" anahtar sözcüğü geri kondu; sözcük sınırı (≤550) korundu.
+- [x] 5. Güvenlik sınırı kodlarına (yasak desen, URL bekçisi, Fetch kesme, proxy, kare silme) dokunulmadı.
+
+### Önce
+Yeni testler (`aday adlar|enYakinAdaylar: uzun|NFC ayrık`) mevcut koda karşı: `pass 5 / fail 1`, çıkış 1 (`log/tur2-kirmizi.txt`). Kırmızı olan: "önce 50 karaktere kesilir, SONRA süzülür" (`kesik ad sızdı → çıktı bekçisi (çıkış 2)`). Diğer beşi mevcut davranışı kilitler (süzme ve NFC kodda vardı, testi yoktu); bu yüzden mutasyonla doğrulandı.
+
+### Mutasyon doğrulaması
+Mutasyonlar çalışma ağacında değil, `skill` dizininin geçici kopyasında uygulandı (kopyalar silindi); testler kopyadaki betiğe karşı koşuldu.
+
+| Mutasyon | Değişiklik | Sonuç | Çıktı |
+|---|---|---|---|
+| A | `const temiz = adaylar;` (süzme yok) | 3 test kırmızı: hassas aday, özel desen, kesim | `log/tur2-mutasyon-A.txt` |
+| B | `trEsle` içinden `.normalize('NFC')` çıkarıldı | NFC testi kırmızı | `log/tur2-mutasyon-B.txt` |
+| C | `adaylar.map(adayKisalt)` çıkarıldı (eski sıra: önce süz, sonra kes) | kesim testi kırmızı | `log/tur2-mutasyon-C.txt` |
+
+### Sonra
+```
+UX_SINAMA_TARAYICI_ZORUNLU=1 node .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs
+```
+Sonuç: `tests 54 / pass 54 / fail 0`, çıkış 0 (`log/tur2-tam-takim.txt`). Yeni testler hedefli koşuda: `pass 6 / fail 0` (`log/tur2-yesil-kismi.txt`).
+
+### Test / Ölçüm
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| yeni testler, kod öncesi | en az kesim testi kırmızı | pass 5 / fail 1 | 1 | PASS (kırmızı görüldü) |
+| mutasyon A / B / C | kırmızı | 3 / 1 / 1 test kırmızı | 1 | PASS |
+| tam selftest, kod sonrası | ≥52 yeşil | pass 54 / fail 0 | 0 | PASS |
+| `SKILL.md` sözcük sayısı (testin sayımı: boşlukla bölme) | ≤550 | 549 | 0 | PASS |
+
+### Orkestratör doğrulaması
+
+### Kapsam dışı / bilinen eksikler
+- `--sun` kipindeki girdi bekçisi tutarsızlığı ve `--izinli-desen` kararı Tur 1 notundaki gibi açık.
+
+### Tur 2 orkestratör doğrulaması
+Zeki, 2026-10-30, kendi koşusu:
+- `UX_SINAMA_TARAYICI_ZORUNLU=1 node .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs`: `tests 54, pass 54, fail 0`, çıkış 0, `✖` satırı 0 (49 + 5 yeni; eski testlere dokunulmadı).
+- `senaryo-kos.mjs` diff'i yalnız `adayKisalt` yardımcısı, `enYakinAdaylar`'daki satır içi kesmenin yardımcıya çevrilmesi ve `yakinAdayEki`'nde "önce kes, sonra süz" sırası; bekçi, URL, Fetch, proxy ve kare silme satırları diff'te yok.
+- Orkestratörce DENENMEDİ: yazarın mutasyonları (A, B, C) bağımsız yeniden uygulanmadı; yazar logları `log/tur2-mutasyon-*.txt`.
