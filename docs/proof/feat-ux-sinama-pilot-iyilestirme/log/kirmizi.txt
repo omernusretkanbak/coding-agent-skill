@@ -1,0 +1,547 @@
+✖ trEsle: Türkçe-bilinçli küçültme + NFC (KATIL→katıl, TERİM→terim, ayrık İ aynı sayılır) (2.2771ms)
+✖ rolCoz: img→image takma adı, büyük/küçük harf duyarsız; bilinmeyen rol olduğu gibi kalır (0.2588ms)
+✖ enYakinAdaylar: en çok 5, en yakın önce, yinelenen yok, Türkçe-bilinçli (0.2268ms)
+✖ yalnizParcaFarki: yalnız #parça farkı (hedefte parça var) aynı belge sayılır; yol/sorgu farkı ya da parça silme sayılmaz (0.1968ms)
+✖ bulgulariGrupla: aynı (tür, şiddet, senaryo, ölçüm) tek satır olur, hücreler ve kimlikler listelenir; farklı ölçüm ayrı kalır (0.257ms)
+✖ CLI --help: kaydir, --hareket, rol takma adları ve geçerli rol listesi anlatılır (145.2405ms)
+✖ CLI: --hareket geçersiz değer → çıkış 2; kaydir hedefsiz → çıkış 2 (271.104ms)
+✖ SKILL.md: yeni özellikler kısaca belgelenir (kaydir, --hareket serbest, img→image, Türkçe eşleşme) ve ≤550 sözcük kalır (0.5ms)
+✖ Türkçe eşleşme: role+name, click metin, assertText ve waitFor büyük/küçük harf (İ/ı) duyarsız (4266.9351ms)
+✖ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (7039.9079ms)
+✖ rol takma adı: role "img" (CDP rolü image) görseli bulur (4204.1301ms)
+✖ kaydir: hedefi görünüme getirir; sonraki screenshot sayfanın aşağısını alır (kaydirmaY ölçümü) (161.0998ms)
+✖ kaydir: bulunamayan hedef ENGELLEYİCİ adim-basarisiz olur (sessiz geçmez) (147.4106ms)
+✖ --hareket: varsayılan reduced-motion zorlar; "serbest" zorlamaz (geçici katmanlar sınanabilir) (4296.0777ms)
+✖ goto #parça: aynı belgede yalnız parça farkı yük olayı beklemeden tamamlanır (kilitlenme/çıkış 3 yok) (48567.8241ms)
+✖ rapor: bulgu yokken bile hücre başına ölçüm özeti satırı olumlu kanıt verir; sonuc.json ölçümleri sayısal (6298.2805ms)
+✖ rapor: aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz; tek satırda hücreler listelenir (sonuc.json ayrıntılı kalır) (5807.5191ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 0
+ℹ fail 17
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82415.4413
+
+✖ failing tests:
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:888:1
+✖ trEsle: Türkçe-bilinçli küçültme + NFC (KATIL→katıl, TERİM→terim, ayrık İ aynı sayılır) (2.2771ms)
+  AssertionError [ERR_ASSERTION]: trEsle dışa aktarılmalı
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:889:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:899:1
+✖ rolCoz: img→image takma adı, büyük/küçük harf duyarsız; bilinmeyen rol olduğu gibi kalır (0.2588ms)
+  AssertionError [ERR_ASSERTION]: rolCoz dışa aktarılmalı
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:900:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:907:1
+✖ enYakinAdaylar: en çok 5, en yakın önce, yinelenen yok, Türkçe-bilinçli (0.2268ms)
+  AssertionError [ERR_ASSERTION]: enYakinAdaylar dışa aktarılmalı
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:908:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:917:1
+✖ yalnizParcaFarki: yalnız #parça farkı (hedefte parça var) aynı belge sayılır; yol/sorgu farkı ya da parça silme sayılmaz (0.1968ms)
+  AssertionError [ERR_ASSERTION]: yalnizParcaFarki dışa aktarılmalı
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:918:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:930:1
+✖ bulgulariGrupla: aynı (tür, şiddet, senaryo, ölçüm) tek satır olur, hücreler ve kimlikler listelenir; farklı ölçüm ayrı kalır (0.257ms)
+  AssertionError [ERR_ASSERTION]: bulgulariGrupla dışa aktarılmalı
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:931:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:945:1
+✖ CLI --help: kaydir, --hareket, rol takma adları ve geçerli rol listesi anlatılır (145.2405ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\bkaydir\b/. Input:
+  
+  'Kullanım:\n' +
+    '  node senaryo-kos.mjs --senaryo <json> (--url <http://127.0.0.1:PORT/...> | --sun <dizin>) --out <dizin> [seçenekler]\n' +
+    '\n' +
+    'Zorunlu:\n' +
+    '  --senaryo <json>        Adım listesi (bkz. senaryo-sablonu.json)\n' +
+    '  --url <url>             Sınanacak adres. YALNIZ http://127.0.0.1:PORT/... kabul edilir\n' +
+    '                          (localhost, başka IP, https, file: reddedilir; çıkış 2)\n' +
+    "  --sun <dizin>           --url yerine: dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar\n" +
+    '                          (--url ile BİRLİKTE VERİLEMEZ; çıkışta kapanır)\n' +
+    '  --out <dizin>           sonuc.json, RAPOR.md ve kareler buraya yazılır\n' +
+    '\n' +
+    'Seçenekler:\n' +
+    '  --matris <GxY,...>      Görünüm alanları (varsayılan: 390x844,768x1024,1280x800)\n' +
+    '  --tema <acik,koyu>      prefers-color-scheme emülasyonu (varsayılan: acik,koyu)\n' +
+    '  --tekrar <n>            Senaryoyu her hücrede n kez koş (1-5, varsayılan 1). YENİ senaryoda 2 kullan:\n' +
+    '                          sonuçlar farklıysa "kararsız senaryo" uyarısı verilir (ürün bulgusu sayılmaz)\n' +
+    '  --setup <js>            Her sayfa belgesinden ÖNCE çalışacak JS (ör. Date.now sabitleme)\n' +
+    '  --beklenti <json>       Sayfa açılmadan önce yazılmış beklenti listesi (bkz. beklenti-sablonu.json)\n' +
+    '  --yasak-desen <dosya>   Satır başına bir düzenli ifade; varsayılan yasak desenlere EK olarak uygulanır\n' +
+    '  --rapor-sablon <md>     RAPOR.md şablonu (varsayılan: skill dizinindeki RAPOR-template.md)\n' +
+    '  --timeout-ms <ms>       Toplam süre sınırı (varsayılan 180000), TEK global deadline. Çağıranın kendi dış\n' +
+    '                          zaman aşımından KISA tut (aksi halde temizlik fırsatı bulunamaz)\n' +
+    '  --browser <exe>         Tarayıcı yolu (yoksa CAPTURE_BROWSER, sonra Edge/Chrome aranır)\n' +
+    '  --help                  Bu yardım\n' +
+    '\n' +
+    `Adımlar (senaryo JSON'u: {"ad": "...", "adimlar": [...]}; ilk adım goto olmalı; örnek: senaryo-sablonu.json):\n` +
+    '  goto          url (göreli yol; mutlak ise 127.0.0.1 olmalı)\n' +
+    '  click         role+name ya da metin; hedef örtülüyse adım başarısız olur\n' +
+    '  fill          role+name ya da metin, deger (açıkça sahte değer kullanın)\n' +
+    '  press         tus: Enter, Tab, Escape, Space, Backspace, Arrow* (ArrowUp/Down/Left/Right)\n' +
+    '  waitFor       metin ya da role(+name); isteğe kaybolur, zamanAsimiMs (koşul yoklaması; sabit bekleme YOK)\n' +
+    '  assertText    metin (isteğe yok: true)\n' +
+    '  assertVisible role(+name) ya da metin\n' +
+    '  screenshot    ad; kare alır ve o noktada denetimleri de koşar\n' +
+    'Her adıma isteğe bağlı: beklenti (beklenti.json kimliği, ör. "B1") ve not. Hedefler yalnız erişilebilirlik\n' +
+    'role+name ya da görünür metin; CSS sınıfı, kimlik ve XPath hedefi REDDEDİLİR. Başarısız adımdan sonraki\n' +
+    'adımlar atlandi olur; son durum yine ölçülür.\n' +
+    '\n' +
+    'Kararlılık: koşucu prefers-reduced-motion: reduce, tr-TR yerel ayarı ve Europe/Istanbul saat dilimini uygular;\n' +
+    'her hücrede depolama, çerez ve önbellek temizlenir. Çıktıda (sonuc.json, RAPOR.md) yasak desen çıkarsa dosyalar\n' +
+    'YAZILMAZ (çıkış 2).\n' +
+    '\n' +
+    'Otomatik denetimler (her hücrede): konsol hatası/yakalanmamış istisna, ağ hatası (4xx/5xx), 127.0.0.1 dışı istek,\n' +
+    "yatay taşma, adsız etkileşimli öğe, alt'sız görsel, başlık atlaması, dokunmatik hedef < 44 px (yalnız ≤480 px\n" +
+    'genişlikte), Tab ile görünür odak, yazı < 12 px. Çalıştırılamayan denetim olcumHatalari alanına ve rapora yazılır.\n' +
+    '\n' +
+    'Şiddet (ölçüt):\n' +
+    '  ENGELLEYİCİ  görev tamamlanamaz ya da güvenlik sınırı aşılır: başarısız adım, 127.0.0.1 dışı istek\n' +
+    '  ÖNEMLİ       görev tamamlanır ama belirgin kusur: konsol hatası/istisna, 4xx/5xx, yatay taşma, adsız düğme,\n' +
+    "               alt'sız görsel, odak göstergesi yok, 24 px altı dokunmatik hedef, kanıtsız beklenti\n" +
+    '  KÜÇÜK        cila: başlık atlaması, 24-44 px dokunmatik hedef, 12 px altı yazı, favicon.ico 404\n' +
+    '\n' +
+    'Sınır: ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir. Yeni pencere/sekme\n' +
+    "(window.open, target=_blank) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür\n" +
+    '(--proxy-bypass-list=<-loopback>;127.0.0.1 ile yalnız 127.0.0.1 muaftır; --block-new-web-contents de verilir ama\n' +
+    'bu tarayıcıda etkisiz çıkabilir). Kurumsal ProxySettings ilkesi bu bayrakları ezebilir. WebSocket, WebRTC ve\n' +
+    'worker kapsam dışıdır.\n' +
+    'Çıktı bekçisi tetiklenirse bu koşunun yazdığı kareler silinir ("N kare silindi"); silinemeyen "KALDI, elle silin".\n' +
+    '\n' +
+    'Çıkış kodları: 0 temiz/yalnız KÜÇÜK, 1 ENGELLEYİCİ/ÖNEMLİ bulgu, 2 kullanım/güvenlik/tarayıcı yok, 3 koşucu hatası.\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:948:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `Kullanım:\n  node senaryo-kos.mjs --senaryo <json> (--url <http://127.0.0.1:PORT/...> | --sun <dizin>) --out <dizin> [seçenekler]\n\nZorunlu:\n  --senaryo <json>        Adım listesi (bkz. senaryo-sablonu.json)\n  --url <url>             Sınanacak adres. YALNIZ http://127.0.0.1:PORT/... kabul edilir\n                          (localhost, başka IP, https, file: reddedilir; çıkış 2)\n  --sun <dizin>           --url yerine: dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar\n                          (--url ile BİRLİKTE VERİLEMEZ; çıkışta kapanır)\n  --out <dizin>           sonuc.json, RAPOR.md ve kareler buraya yazılır\n\nSeçenekler:\n  --matris <GxY,...>      Görünüm alanları (varsayılan: 390x844,768x1024,1280x800)\n  --tema <acik,koyu>      prefers-color-scheme emülasyonu (varsayılan: acik,koyu)\n  --tekrar <n>            Senaryoyu her hücrede n kez koş (1-5, varsayılan 1). YENİ senaryoda 2 kullan:\n                          sonuçlar farklıysa "kararsız senaryo" uyarısı verilir (ürün bulgusu sayılmaz)\n  --setup <js>            Her sayfa belgesinden ÖNCE çalışacak JS (ör. Date.now sabitleme)\n  --beklenti <json>       Sayfa açılmadan önce yazılmış beklenti listesi (bkz. beklenti-sablonu.json)\n  --yasak-desen <dosya>   Satır başına bir düzenli ifade; varsayılan yasak desenlere EK olarak uygulanır\n  --rapor-sablon <md>     RAPOR.md şablonu (varsayılan: skill dizinindeki RAPOR-template.md)\n  --timeout-ms <ms>       Toplam süre sınırı (varsayılan 180000), TEK global deadline. Çağıranın kendi dış\n                          zaman aşımından KISA tut (aksi halde temizlik fırsatı bulunamaz)\n  --browser <exe>         Tarayıcı yolu (yoksa CAPTURE_BROWSER, sonra Edge/Chrome aranır)\n  --help                  Bu yardım\n\nAdımlar (senaryo JSON'u: {"ad": "...", "adimlar": [...]}; ilk adım goto olmalı; örnek: senaryo-sablonu.json):\n  goto          url (göreli yol; mutlak ise 127.0.0.1 olmalı)\n  click         role+name ya da metin; hedef örtülüyse adım başarısız olur\n  fill          role+name ya da metin, deger (açıkça sahte değer kullanın)\n  press         tus: Enter, Tab, Escape, Space, Backspace, Arrow* (ArrowUp/Down/Left/Right)\n  waitFor       metin ya da role(+name); isteğe kaybolur, zamanAsimiMs (koşul yoklaması; sabit bekleme YOK)\n  assertText    metin (isteğe yok: true)\n  assertVisible role(+name) ya da metin\n  screenshot    ad; kare alır ve o noktada denetimleri de koşar\nHer adıma isteğe bağlı: beklenti (beklenti.json kimliği, ör. "B1") ve not. Hedefler yalnız erişilebilirlik\nrole+name ya da görünür metin; CSS sınıfı, kimlik ve XPath hedefi REDDEDİLİR. Başarısız adımdan sonraki\nadımlar atlandi olur; son durum yine ölçülür.\n\nKararlılık: koşucu prefers-reduced-motion: reduce, tr-TR yerel ayarı ve Europe/Istanbul saat dilimini uygular;\nher hücrede depolama, çerez ve önbellek temizlenir. Çıktıda (sonuc.json, RAPOR.md) yasak desen çıkarsa dosyalar\nYAZILMAZ (çıkış 2).\n\nOtomatik denetimler (her hücrede): konsol hatası/yakalanmamış istisna, ağ hatası (4xx/5xx), 127.0.0.1 dışı istek,\nyatay taşma, adsız etkileşimli öğe, alt'sız görsel, başlık atlaması, dokunmatik hedef < 44 px (yalnız ≤480 px\ngenişlikte), Tab ile görünür odak, yazı < 12 px. Çalıştırılamayan denetim olcumHatalari alanına ve rapora yazılır.\n\nŞiddet (ölçüt):\n  ENGELLEYİCİ  görev tamamlanamaz ya da güvenlik sınırı aşılır: başarısız adım, 127.0.0.1 dışı istek\n  ÖNEMLİ       görev tamamlanır ama belirgin kusur: konsol hatası/istisna, 4xx/5xx, yatay taşma, adsız düğme,\n               alt'sız görsel, odak göstergesi yok, 24 px altı dokunmatik hedef, kanıtsız beklenti\n  KÜÇÜK        cila: başlık atlaması, 24-44 px dokunmatik hedef, 12 px altı yazı, favicon.ico 404\n\nSınır: ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir. Yeni pencere/sekme\n(window.open, target=_blank) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür\n(--proxy-bypass-list=<-loopback>;127.0.0.1 ile yalnız 127.0.0.1 muaftır; --block-new-web-contents de verilir ama\nbu tarayıcıda etkisiz çıkabilir). Kurumsal ProxySettings ilkesi bu bayrakları ezebilir. WebSocket, WebRTC ve\nworker kapsam dışıdır.\nÇıktı bekçisi tetiklenirse bu koşunun yazdığı kareler silinir ("N kare silindi"); silinemeyen "KALDI, elle silin".\n\nÇıkış kodları: 0 temiz/yalnız KÜÇÜK, 1 ENGELLEYİCİ/ÖNEMLİ bulgu, 2 kullanım/güvenlik/tarayıcı yok, 3 koşucu hatası.\n\n`,
+    expected: /\bkaydir\b/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:956:1
+✖ CLI: --hareket geçersiz değer → çıkış 2; kaydir hedefsiz → çıkış 2 (271.104ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /hedef/. Input:
+  
+  'Hata: adım 2: bilinmeyen adım türü "kaydir" ("adim" alanı: goto|click|fill|press|waitFor|assertText|assertVisible|screenshot)\n'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:964:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Hata: adım 2: bilinmeyen adım türü "kaydir" ("adim" alanı: goto|click|fill|press|waitFor|assertText|assertVisible|screenshot)\n',
+    expected: /hedef/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:968:1
+✖ SKILL.md: yeni özellikler kısaca belgelenir (kaydir, --hareket serbest, img→image, Türkçe eşleşme) ve ≤550 sözcük kalır (0.5ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\bkaydir\b/. Input:
+  
+  '---\n' +
+    'name: ux-sinama\n' +
+    'description: >-\n' +
+    '  Use after a writer has changed a web UI (screens, forms, navigation, layout,\n' +
+    '  styles) and before the proof is accepted: an independent "sınayıcı" role,\n' +
+    '  separate from the writer, probes the interface in a headless browser with\n' +
+    '  scenario steps and produces a findings report. Keywords: UX sınama, arayüz\n' +
+    '  testi, senaryo, sınayıcı, erişilebilirlik, yatay taşma, dokunmatik hedef,\n' +
+    '  odak, karanlık tema, mobil görünüm, bulgu raporu, ux-sinama.\n' +
+    '  Does not replace prove-it (which only verifies claims). Observes only: never\n' +
+    '  edits code, never touches non-local sites.\n' +
+    '---\n' +
+    '\n' +
+    '# SINA — ux-sinama\n' +
+    '\n' +
+    '**Duyuru:** "`ux-sinama` skill\'ini kullanıyorum: arayüzü bağımsız bir sınayıcı gözüyle senaryo bazlı sınıyorum."\n' +
+    '\n' +
+    'Arayüze dokunan her değişiklikte, yazar bittikten ve `prove-it` kanıtından önce; arka uç/betik/belge değişikliğinde değil. `prove-it` iddiayı kanıtlar; bu skill iddia edilmemiş kusurları arar.\n' +
+    '\n' +
+    '## Rol sözleşmesi\n' +
+    '\n' +
+    'Sınayıcı yazardan AYRI roldür (ayrı oturum/alt-ajan).\n' +
+    '\n' +
+    '- **Kod değiştirmez**, `git add/commit/push` yapmaz; yalnız senaryo, beklenti ve rapor yazar. Düzeltme yazarındır; bulguya en çok bir cümle öneri eklenebilir.\n' +
+    '- **Beklentiler sayfa AÇILMADAN yazılır** (`beklenti-sablonu.json`): beklenti sayfayı değil görevi izler.\n' +
+    '- **Kırmızı-önce:** yeni davranış adımları mümkünse değişiklik öncesi tabanda KIRMIZI görülür; taban yoksa nedeni rapora yazılır.\n' +
+    '- **Her beklenti kanıtlanır:** adıma `"beklenti": "B1"` yazılır; bağlanmayan beklenti ÖNEMLİ bulgudur.\n' +
+    '\n' +
+    '## Akış\n' +
+    '\n' +
+    '1. Görev tanımından kullanıcı yolculuklarını (en çok 6 senaryo) ve beklentileri yaz.\n' +
+    "2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri ve alanları `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`. Sahte değer kullan.\n" +
+    '3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (`--sun` yerine `--url http://127.0.0.1:<port>/`). Diğer seçenekler ve çıkış kodları `--help`\'te. `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz.\n' +
+    '4. `RAPOR.md` özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.\n' +
+    "5. Çıktılar yazarın PROOF'una (`docs/proof/<dal-slug>/`) bağlanır. ENGELLEYİCİ/ÖNEMLİ bulgu yazara döner; düzeltmeden sonra yeniden koşulur.\n" +
+    '\n' +
+    '## Bulgu şiddeti\n' +
+    '\n' +
+    '- **ENGELLEYİCİ:** görev tamamlanamaz ya da güvenlik sınırı aşılır (başarısız adım, 127.0.0.1 dışına istek).\n' +
+    '- **ÖNEMLİ:** görev tamamlanır ama belirgin kusur (konsol hatası, 4xx/5xx, taşma, adsız düğme, `alt`sız görsel, odak yok, 24 px altı hedef, kanıtsız beklenti).\n' +
+    '- **KÜÇÜK:** cila (başlık atlaması, 24–44 px hedef, 12 px altı yazı). Dokunmatik hedef denetimi yalnız ≤480 px genişlikte.\n' +
+    '\n' +
+    'Her bulgu = **senaryo adı + sayısal ölçüm + kare**; ölçümsüz bulgu yazılmaz.\n' +
+    '\n' +
+    '## Sınır\n' +
+    '\n' +
+    '- **Kişisel ya da sağlık verisi taşıyan arayüzlerde çalıştırılmaz: kareler ekrandaki her şeyi alır, rapor konsol ve öğe metnini içerir; bu ekranları insan gözle sına.**\n' +
+    '- Yalnız `http://127.0.0.1:<port>/`; `localhost`, başka IP, `https`, `file:` çıkış 2. `--sun` dizini salt-okunur sunulur.\n' +
+    "- Ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir (ENGELLEYİCİ `dis-istek`). Yeni pencere/sekme (`window.open`, `_blank`) bu bekçiden geçmez; onların loopback dışı trafiği (link-local, `*.localhost` dahil) ölü proxy'de ölür; `--block-new-web-contents` bu tarayıcıda etkisiz çıkabilir, kurumsal ProxySettings ilkesi proxy bayrağını ezebilir. WebSocket/WebRTC kapsam dışıdır: garanti yok.\n" +
+    '- **Yasak desen bekçisi** girdiyi (senaryo, beklenti, `--setup`, `--sun` metinleri) ve ÇIKTIYI (`sonuc.json`, `RAPOR.md`) tarar; şu biçimleri kodda yakalar: 11 hane, TR cep telefonu, e-posta, `--yasak-desen` desenleri. Eşleşmede iş başlamaz ya da çıktı yazılmaz ve bu koşunun kareleri silinir (çıkış 2); yalnız `dosya:satır` ve silinen kare sayısı yazılır (silinemeyen `KALDI, elle silin` diye listelenir). Ad/adres gibi gerisi sınayıcının sorumluluğudur.\n' +
+    '\n' +
+    '## Ne YAPMAZ\n' +
+    '\n' +
+    'En çok 12 görüntü açar; PROOF\'a yerel yol/kullanıcı adı girmeden maskeler. Canlı siteyi gezmez, düzeltme uygulamaz, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa hata).\n'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:969:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '---\nname: ux-sinama\ndescription: >-\n  Use after a writer has changed a web UI (screens, forms, navigation, layout,\n  styles) and before the proof is accepted: an independent "sınayıcı" role,\n  separate from the writer, probes the interface in a headless browser with\n  scenario steps and produces a findings report. Keywords: UX sınama, arayüz\n  testi, senaryo, sınayıcı, erişilebilirlik, yatay taşma, dokunmatik hedef,\n  odak, karanlık tema, mobil görünüm, bulgu raporu, ux-sinama.\n  Does not replace prove-it (which only verifies claims). Observes only: never\n  edits code, never touches non-local sites.\n---\n\n# SINA — ux-sinama\n\n**Duyuru:** "`ux-sinama` skill\'ini kullanıyorum: arayüzü bağımsız bir sınayıcı gözüyle senaryo bazlı sınıyorum."\n\nArayüze dokunan her değişiklikte, yazar bittikten ve `prove-it` kanıtından önce; arka uç/betik/belge değişikliğinde değil. `prove-it` iddiayı kanıtlar; bu skill iddia edilmemiş kusurları arar.\n\n## Rol sözleşmesi\n\nSınayıcı yazardan AYRI roldür (ayrı oturum/alt-ajan).\n\n- **Kod değiştirmez**, `git add/commit/push` yapmaz; yalnız senaryo, beklenti ve rapor yazar. Düzeltme yazarındır; bulguya en çok bir cümle öneri eklenebilir.\n- **Beklentiler sayfa AÇILMADAN yazılır** (`beklenti-sablonu.json`): beklenti sayfayı değil görevi izler.\n- **Kırmızı-önce:** yeni davranış adımları mümkünse değişiklik öncesi tabanda KIRMIZI görülür; taban yoksa nedeni rapora yazılır.\n- **Her beklenti kanıtlanır:** adıma `"beklenti": "B1"` yazılır; bağlanmayan beklenti ÖNEMLİ bulgudur.\n\n## Akış\n\n1. Görev tanımından kullanıcı yolculuklarını (en çok 6 senaryo) ve beklentileri yaz.\n2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri ve alanları `--help`\'te). Hedef yalnız `role`+`name` ya da görünür `metin`. Sahte değer kullan.\n3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (`--sun` yerine `--url http://127.0.0.1:<port>/`). Diğer seçenekler ve çıkış kodları `--help`\'te. `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz.\n4. `RAPOR.md` özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.\n5. Çıktılar yazarın PROOF\'una (`docs/proof/<dal-slug>/`) bağlanır. ENGELLEYİCİ/ÖNEMLİ bulgu yazara döner; düzeltmeden sonra yeniden koşulur.\n\n## Bulgu şiddeti\n\n- **ENGELLEYİCİ:** görev tamamlanamaz ya da güvenlik sınırı aşılır (başarısız adım, 127.0.0.1 dışına istek).\n- **ÖNEMLİ:** görev tamamlanır ama belirgin kusur (konsol hatası, 4xx/5xx, taşma, adsız düğme, `alt`sız görsel, odak yok, 24 px altı hedef, kanıtsız beklenti).\n- **KÜÇÜK:** cila (başlık atlaması, 24–44 px hedef, 12 px altı yazı). Dokunmatik hedef denetimi yalnız ≤480 px genişlikte.\n\nHer bulgu = **senaryo adı + sayısal ölçüm + kare**; ölçümsüz bulgu yazılmaz.\n\n## Sınır\n\n- **Kişisel ya da sağlık verisi taşıyan arayüzlerde çalıştırılmaz: kareler ekrandaki her şeyi alır, rapor konsol ve öğe metnini içerir; bu ekranları insan gözle sına.**\n- Yalnız `http://127.0.0.1:<port>/`; `localhost`, başka IP, `https`, `file:` çıkış 2. `--sun` dizini salt-okunur sunulur.\n- Ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir (ENGELLEYİCİ `dis-istek`). Yeni pencere/sekme (`window.open`, `_blank`) bu bekçiden geçmez; onların loopback dışı trafiği (link-local, `*.localhost` dahil) ölü proxy\'de ölür; `--block-new-web-contents` bu tarayıcıda etkisiz çıkabilir, kurumsal ProxySettings ilkesi proxy bayrağını ezebilir. WebSocket/WebRTC kapsam dışıdır: garanti yok.\n- **Yasak desen bekçisi** girdiyi (senaryo, beklenti, `--setup`, `--sun` metinleri) ve ÇIKTIYI (`sonuc.json`, `RAPOR.md`) tarar; şu biçimleri kodda yakalar: 11 hane, TR cep telefonu, e-posta, `--yasak-desen` desenleri. Eşleşmede iş başlamaz ya da çıktı yazılmaz ve bu koşunun kareleri silinir (çıkış 2); yalnız `dosya:satır` ve silinen kare sayısı yazılır (silinemeyen `KALDI, elle silin` diye listelenir). Ad/adres gibi gerisi sınayıcının sorumluluğudur.\n\n## Ne YAPMAZ\n\nEn çok 12 görüntü açar; PROOF\'a yerel yol/kullanıcı adı girmeden maskeler. Canlı siteyi gezmez, düzeltme uygulamaz, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa hata).\n',
+    expected: /\bkaydir\b/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:979:1
+✖ Türkçe eşleşme: role+name, click metin, assertText ve waitFor büyük/küçük harf (İ/ı) duyarsız (4266.9351ms)
+  AssertionError [ERR_ASSERTION]: stderr:
+  profil: ux-sinama-gfSRgf
+  sunucu: http://127.0.0.1:64513/
+  cdp: port=64514 profil=ux-sinama-gfSRgf
+  hücre: 1280x800-acik
+  
+  [
+   {
+    "no": 1,
+    "adim": "goto",
+    "durum": "gecti",
+    "sureMs": 74
+   },
+   {
+    "no": 2,
+    "adim": "assertVisible",
+    "durum": "gecti",
+    "sureMs": 18
+   },
+   {
+    "no": 3,
+    "adim": "assertVisible",
+    "durum": "basarisiz",
+    "mesaj": "görünür öğe yok: role=button name=\"katıl\"",
+    "sureMs": 4
+   },
+   {
+    "no": 4,
+    "adim": "assertVisible",
+    "durum": "atlandi"
+   },
+   {
+    "no": 5,
+    "adim": "assertVisible",
+    "durum": "atlandi"
+   },
+   {
+    "no": 6,
+    "adim": "click",
+    "durum": "atlandi"
+   },
+   {
+    "no": 7,
+    "adim": "click",
+    "durum": "atlandi"
+   },
+   {
+    "no": 8,
+    "adim": "assertText",
+    "durum": "atlandi"
+   },
+   {
+    "no": 9,
+    "adim": "assertText",
+    "durum": "atlandi"
+   },
+   {
+    "no": 10,
+    "adim": "waitFor",
+    "durum": "atlandi"
+   },
+   {
+    "no": 11,
+    "adim": "waitFor",
+    "durum": "atlandi"
+   }
+  ]
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:997:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1001:1
+✖ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (7039.9079ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /en yakın/i. Input:
+  
+  'hedef bulunamadı: role=button name="Katilim"'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1010:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'hedef bulunamadı: role=button name="Katilim"',
+    expected: /en yakın/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1019:1
+✖ rol takma adı: role "img" (CDP rolü image) görseli bulur (4204.1301ms)
+  AssertionError [ERR_ASSERTION]: stderr:
+  profil: ux-sinama-G5gZu5
+  sunucu: http://127.0.0.1:58632/
+  cdp: port=58633 profil=ux-sinama-G5gZu5
+  hücre: 1280x800-acik
+  
+  [{"no":1,"adim":"goto","durum":"gecti","sureMs":67},{"no":2,"adim":"assertVisible","durum":"basarisiz","mesaj":"görünür öğe yok: role=img name=\"logo görseli\"","sureMs":17},{"no":3,"adim":"assertVisible","durum":"atlandi"}]
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1025:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1028:1
+✖ kaydir: hedefi görünüme getirir; sonraki screenshot sayfanın aşağısını alır (kaydirmaY ölçümü) (161.0998ms)
+  AssertionError [ERR_ASSERTION]: stderr:
+  Hata: adım 2: bilinmeyen adım türü "kaydir" ("adim" alanı: goto|click|fill|press|waitFor|assertText|assertVisible|screenshot)
+  
+  undefined
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1040:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1053:1
+✖ kaydir: bulunamayan hedef ENGELLEYİCİ adim-basarisiz olur (sessiz geçmez) (147.4106ms)
+  AssertionError [ERR_ASSERTION]: Hata: adım 2: bilinmeyen adım türü "kaydir" ("adim" alanı: goto|click|fill|press|waitFor|assertText|assertVisible|screenshot)
+  
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1056:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1060:1
+✖ --hareket: varsayılan reduced-motion zorlar; "serbest" zorlamaz (geçici katmanlar sınanabilir) (4296.0777ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'azalt'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1068:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'azalt',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1079:1
+✖ goto #parça: aynı belgede yalnız parça farkı yük olayı beklemeden tamamlanır (kilitlenme/çıkış 3 yok) (48567.8241ms)
+  AssertionError [ERR_ASSERTION]: stderr:
+  profil: ux-sinama-bJORoL
+  sunucu: http://127.0.0.1:50153/
+  cdp: port=50154 profil=ux-sinama-bJORoL
+  hücre: 1280x800-acik
+  Hata: Page.loadEventFired eventi zaman aşımına uğradı
+  
+  undefined
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1093:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1097:1
+✖ rapor: bulgu yokken bile hücre başına ölçüm özeti satırı olumlu kanıt verir; sonuc.json ölçümleri sayısal (6298.2805ms)
+  AssertionError [ERR_ASSERTION]: 390x844-acik: olcumler.konsolHata sayı olmalı ({"renkSemasiKoyu":false,"azaltilmisHareket":true,"dil":"tr-TR","dateNow":1793376344640,"baslik":"Pilot sayfa","scrollWidth":375,"clientWidth":375,"innerWidth":390,"odakGezintisi":{"odaklanabilir":10,"kontrolEdilen":10,"odaksiz":0}})
+  + actual - expected
+  
+  + 'undefined'
+  - 'number'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1105:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'number',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1120:1
+✖ rapor: aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz; tek satırda hücreler listelenir (sonuc.json ayrıntılı kalır) (5807.5191ms)
+  AssertionError [ERR_ASSERTION]: konsol-hatasi tek satır olmalı:
+  | F5 | ÖNEMLİ | konsol-hatasi | gruplama | 1280x800-acik | `{"sayi":1,"ilk":"kasitli konsol hatasi"}` | [gruplama_1280x800-acik_acilis.png](kareler/gruplama_1280x800-acik_acilis.png) |
+  | F12 | ÖNEMLİ | konsol-hatasi | gruplama | 1280x800-koyu | `{"sayi":1,"ilk":"kasitli konsol hatasi"}` | [gruplama_1280x800-koyu_acilis.png](kareler/gruplama_1280x800-koyu_acilis.png) |
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1128:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+cikis=1

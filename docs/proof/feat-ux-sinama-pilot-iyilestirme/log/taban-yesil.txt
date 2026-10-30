@@ -1,0 +1,42 @@
+✔ modül yüklenir ve beklenen işlevleri dışa aktarır (1.1085ms)
+✔ urlBekcisi: yalnız http://127.0.0.1:PORT kabul edilir (0.2725ms)
+✔ yasakTara: 11 haneli sayı, TR cep telefonu ve e-posta yakalanır; eşleşen metin döndürülmez (1.8476ms)
+✔ statik sunucu: salt okunur, yalnız 127.0.0.1, dizin dışına çıkış (..) engelli, kapanınca port boşalır (56.6006ms)
+✔ CLI: URL bekçisi (--url) localhost / özel IP / https / file / port yok → çıkış 2, tarayıcı açılmaz (660.6771ms)
+✔ CLI: senaryodaki mutlak goto URL'si 127.0.0.1 dışındaysa başlamadan çıkış 2 (134.8729ms)
+✔ CLI: yasak desen bekçisi — 11 haneli sayı içeren senaryo → çıkış 2; yalnız dosya:satır ve desen adı yazılır (133.3625ms)
+✔ CLI: yasak desen bekçisi — telefon/e-posta senaryoda, ve --sun dizinindeki metin dosyasında yakalanır (267.6939ms)
+✔ CLI: --yasak-desen <dosya> projeye özgü deseni uygular; geçersiz ifade çıkış 2 (270.6706ms)
+✔ CLI: kullanım hataları çıkış 2 — --senaryo yok, --url ve --sun birlikte / hiçbiri yok, bilinmeyen bayrak, kötü matris, --out yok, bozuk senaryo (1612.5003ms)
+✔ CLI: --help çıkış 0 ve kullanım metni yazar; adım türlerini ve seçenekleri gerçekten verir (142.6644ms)
+✔ SKILL.md: kişisel/sağlık verisi taşıyan arayüzde çalıştırılmaz sınırı yazılı (ENGELLEYİCİ-1) (0.3561ms)
+✔ SKILL.md: hafif kalır (≤550 sözcük), ağ sınırı dürüst (WebSocket/WebRTC kapsam dışı), eşik ve bekçi iddiası hizalı (ÖNEMLİ-3, KÜÇÜK d/e) (0.5767ms)
+✔ tarayiciBayraklari: yeni hedefler engelli, loopback dışı trafik ölü proxy'de, profil dizini ve about:blank korunur (0.1877ms)
+✔ tarayıcı gerekli mi: UX_SINAMA_TARAYICI_ZORUNLU=1 iken tarayıcı yoksa sessiz atlama YOK, test başarısız olur (0.1599ms)
+✔ kusurlu fixture: koşucu kasıtlı kusurların HER BİRİNİ bulgu olarak üretir; bulgu = senaryo + ölçüm + kare; çıkış 1 (4977.1871ms)
+✔ temiz fixture: tam 3x2 matris, --tekrar 2: bulgu yok, kararsızlık yok, tüm adımlar geçti, çıkış 0 (9845.8318ms)
+✔ metin hedefi + press Enter ile gönderim çalışır; tema ve kararlılık emülasyonları hücreye yansır (4243.6399ms)
+✔ favicon.ico 404 gürültüsü ÖNEMLİ sayılmaz: KÜÇÜK kalır, çıkış 0 (4232.5396ms)
+✔ --setup her belgeden önce çalışır (Date.now sabitleme) (4276.9228ms)
+✔ başarısız assert: çıkış 1, ENGELLEYİCİ adim-basarisiz bulgusu, sonraki adımlar atlandı (4492.0254ms)
+✔ adım hedefi bulunamazsa (olmayan düğme) sonsuza dek beklemez: ENGELLEYİCİ adim-basarisiz (7033.4711ms)
+✔ dış istek engeli: sayfa 127.0.0.1 dışına alt istek atarsa istek ENGELLENİR ve ENGELLEYİCİ dis-istek bulgusu olur (4119.6121ms)
+✔ dış yönlendirme: 127.0.0.1 → dış adrese 302 engellenir ve bulgu olur (4188.8057ms)
+✔ kararsız senaryo: --tekrar 2 sonuçları farklıysa kararsız uyarısı verilir, ürün bulgusu sayılmaz (çıkış 0) (4403.0416ms)
+✔ beklenti.json: kanıtlı beklenti karşılandı, adımsız beklenti kanıtsız (ÖNEMLİ, çıkış 1), bilinmeyen kimlik çıkış 2 (4437.4286ms)
+✔ süreç hijyeni: başarı, ENGELLEYİCİ bulgu ve zaman aşımı yollarında profil dizini ve tarayıcı süreci kalmaz; --sun sunucusu kapanır (28787.5308ms)
+✔ çıktı bekçisi: konsola 11 haneli sayı basan sayfa → sonuc.json ve RAPOR.md YAZILMAZ, yalnız dosya:satır ve desen adı stderr'e, çıkış 2 (4086.5304ms)
+✔ kareleriSil: yalnız verilen yolları siler, silinemeyeni "kalan" olarak döndürür (başkasının dosyasına dokunmaz) (0.3348ms)
+✔ çıktı bekçisi: tetiklenince bu koşunun kareleri SİLİNİR (başkasının dosyası kalır), stderr'de sayı yazılır, değer yazılmaz (4208.873ms)
+✔ çıktı bekçisi: --yasak-desen özel desenleri de çıktıda uygulanır (4260.7475ms)
+bilgi: yeni hedef AÇILDI (dış trafiği proxy'ye düştü)
+✔ proxy: loopback proxy'den muaftır (sınama bozulmaz), loopback dışı trafik proxy'ye düşer; window.open ile açılan yeni hedef doğrudan dışarı çıkmaz (4802.5012ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 106538.2574
+cikis=0

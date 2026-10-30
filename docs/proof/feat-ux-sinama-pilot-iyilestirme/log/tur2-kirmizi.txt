@@ -1,0 +1,45 @@
+✔ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (14653.8724ms)
+✔ aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil) (7023.1292ms)
+✔ aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır (7058.8799ms)
+✖ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (7058.8444ms)
+✔ enYakinAdaylar: uzun ad 50 karaktere kesilip "…" alır; kesme tekrar uygulanınca değişmez (1.7604ms)
+✔ trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC'siz karşılaştırma bunu ayırt edemezdi (0.2059ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36767.7924
+
+✖ failing tests:
+
+test at .claude\skills\ux-sinama\scripts\senaryo-kos.selftest.mjs:1167:1
+✖ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (7058.8444ms)
+  AssertionError [ERR_ASSERTION]: kesik ad sızdı → çıktı bekçisi (çıkış 2):
+  profil: ux-sinama-EHxgTo
+  cdp: port=49896 profil=ux-sinama-EHxgTo
+  hücre: 1280x800-acik
+  Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.
+    sonuc.json:35  desen=on-bir-hane
+    sonuc.json:64  desen=on-bir-hane
+    RAPOR.md:19  desen=on-bir-hane
+  1 kare silindi.
+  Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.
+  
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///D:/tmp/wt-cas-ux/.claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs:1171:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+cikis=1

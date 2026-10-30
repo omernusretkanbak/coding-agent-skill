@@ -9,7 +9,7 @@
 //
 // Kullanım:
 //   node senaryo-kos.mjs --senaryo <json> (--url http://127.0.0.1:PORT/ | --sun <dizin>) --out <dizin>
-//     [--matris 390x844,768x1024,1280x800] [--tema acik,koyu] [--tekrar 1] [--setup <js>]
+//     [--matris 390x844,768x1024,1280x800] [--tema acik,koyu] [--hareket azalt|serbest] [--tekrar 1] [--setup <js>]
 //     [--beklenti <json>] [--yasak-desen <dosya>] [--timeout-ms 180000] [--browser <exe>]
 //   node senaryo-kos.mjs --help
 //
@@ -41,6 +41,16 @@ import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+// Erişilebilirlik ağacı (CDP) rol adları; senaryodaki `role` bunlardan biri olmalıdır. Takma ad: CDP adı farklıysa.
+export const ROL_LISTESI = [
+  'alert', 'alertdialog', 'article', 'banner', 'button', 'cell', 'checkbox', 'combobox', 'complementary', 'contentinfo',
+  'dialog', 'figure', 'form', 'grid', 'group', 'heading', 'image', 'link', 'list', 'listbox', 'listitem', 'main',
+  'menu', 'menubar', 'menuitem', 'navigation', 'option', 'progressbar', 'radio', 'region', 'row', 'search', 'searchbox',
+  'separator', 'slider', 'spinbutton', 'status', 'switch', 'tab', 'table', 'tablist', 'tabpanel', 'textbox', 'toolbar', 'tooltip',
+];
+export const ROL_TAKMA = { img: 'image' };
+const TAKMA_METNI = Object.entries(ROL_TAKMA).map(([k, v]) => `${k} → ${v}`).join(', ');
+
 const HELP = `Kullanım:
   node senaryo-kos.mjs --senaryo <json> (--url <http://127.0.0.1:PORT/...> | --sun <dizin>) --out <dizin> [seçenekler]
 
@@ -55,6 +65,10 @@ Zorunlu:
 Seçenekler:
   --matris <GxY,...>      Görünüm alanları (varsayılan: 390x844,768x1024,1280x800)
   --tema <acik,koyu>      prefers-color-scheme emülasyonu (varsayılan: acik,koyu)
+  --hareket <azalt|serbest>
+                          azalt (varsayılan): prefers-reduced-motion: reduce zorlanır (kararlı kare). serbest:
+                          ZORLANMAZ; karşılama/splash/modal gibi hareket kapalıyken görünmeyen geçici katmanlar
+                          sınanabilir (kareler daha kararsız olabilir; yeni senaryoda --tekrar 2 kullanın)
   --tekrar <n>            Senaryoyu her hücrede n kez koş (1-5, varsayılan 1). YENİ senaryoda 2 kullan:
                           sonuçlar farklıysa "kararsız senaryo" uyarısı verilir (ürün bulgusu sayılmaz)
   --setup <js>            Her sayfa belgesinden ÖNCE çalışacak JS (ör. Date.now sabitleme)
@@ -67,8 +81,11 @@ Seçenekler:
   --help                  Bu yardım
 
 Adımlar (senaryo JSON'u: {"ad": "...", "adimlar": [...]}; ilk adım goto olmalı; örnek: senaryo-sablonu.json):
-  goto          url (göreli yol; mutlak ise 127.0.0.1 olmalı)
+  goto          url (göreli yol; mutlak ise 127.0.0.1 olmalı). Aynı belgede yalnız #parça farkı ("/#iletisim")
+                yük olayı beklenmeden (Page.navigatedWithinDocument) tamamlanır
   click         role+name ya da metin; hedef örtülüyse adım başarısız olur
+  kaydir        role+name ya da metin; hedefi görünüme getirir (scrollIntoView). Ardından gelen screenshot
+                sayfanın aşağısındaki bölümü karelemiş olur
   fill          role+name ya da metin, deger (açıkça sahte değer kullanın)
   press         tus: Enter, Tab, Escape, Space, Backspace, Arrow* (ArrowUp/Down/Left/Right)
   waitFor       metin ya da role(+name); isteğe kaybolur, zamanAsimiMs (koşul yoklaması; sabit bekleme YOK)
@@ -79,7 +96,13 @@ Her adıma isteğe bağlı: beklenti (beklenti.json kimliği, ör. "B1") ve not.
 role+name ya da görünür metin; CSS sınıfı, kimlik ve XPath hedefi REDDEDİLİR. Başarısız adımdan sonraki
 adımlar atlandi olur; son durum yine ölçülür.
 
-Kararlılık: koşucu prefers-reduced-motion: reduce, tr-TR yerel ayarı ve Europe/Istanbul saat dilimini uygular;
+Eşleşme: role+name, metin, assertText ve waitFor Türkçe-bilinçli ve büyük/küçük harf duyarsızdır (Unicode NFC +
+tr küçültme: "KATIL" = "katıl", "TERİM" = "terim"; text-transform: uppercase görünür adı büyütse de eşleşir).
+Bulunamayan adda hata mesajı sayfadaki en yakın aday adları listeler (en çok 5).
+Roller (erişilebilirlik ağacı, CDP adları): ${ROL_LISTESI.join(', ')}.
+Takma adlar: ${TAKMA_METNI} (img yazılsa da CDP rolü image aranır).
+
+Kararlılık: koşucu (--hareket serbest değilse) prefers-reduced-motion: reduce, tr-TR yerel ayarı ve Europe/Istanbul saat dilimini uygular;
 her hücrede depolama, çerez ve önbellek temizlenir. Çıktıda (sonuc.json, RAPOR.md) yasak desen çıkarsa dosyalar
 YAZILMAZ (çıkış 2).
 
@@ -299,6 +322,94 @@ export function tarayiciBul(explicit) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Eşleşme yardımcıları (saf işlevler)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Eşleşme için Türkçe-bilinçli normalleştirme: Unicode NFC, boşluk sadeleştirme, tr küçültme
+ * ("KATIL" → "katıl", "TERİM" → "terim"). Sayfa içinde de çalışır (toString ile gönderilir): DIŞ BAŞVURU İÇERMEZ.
+ */
+export function trEsle(s) {
+  return String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('tr');
+}
+
+/** Senaryodaki rolü CDP erişilebilirlik rol adına çevirir (img → image); küçük harfe indirir. */
+export function rolCoz(rol) {
+  const r = String(rol ?? '').trim().toLowerCase();
+  return ROL_TAKMA[r] ?? r;
+}
+
+// Yalnız sıralama için: aksan ve ı/i farkını yok sayan ASCII benzeri biçim ("Katilim" ≈ "katıl").
+const sadelestir = (k) => k.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0131/g, 'i');
+
+function duzenlemeUzakligi(a, b) {
+  if (a === b) return 0;
+  let onceki = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const simdiki = [i];
+    for (let j = 1; j <= b.length; j++) {
+      simdiki[j] = Math.min(onceki[j] + 1, simdiki[j - 1] + 1, onceki[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    onceki = simdiki;
+  }
+  return onceki[b.length];
+}
+
+/** Aday adı mesajda gösterileceği biçime (en çok 50 karakter + "…") kısaltır; tekrar uygulanınca değişmez. */
+export function adayKisalt(ad) {
+  const t = String(ad ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > 50 ? `${t.slice(0, 50)}…` : t;
+}
+
+/** Aranan ada en yakın en çok `enCok` aday adı döndürür (yinelenenler Türkçe-bilinçli tekilleştirilir). */
+export function enYakinAdaylar(aranan, adaylar, enCok = 5) {
+  const a = sadelestir(trEsle(aranan)).slice(0, 80);
+  const goruldu = new Set();
+  const puanli = [];
+  for (const ham of adaylar) {
+    const ad = String(ham ?? '').replace(/\s+/g, ' ').trim();
+    const anahtar = trEsle(ad);
+    if (!anahtar || goruldu.has(anahtar)) continue;
+    goruldu.add(anahtar);
+    const k = sadelestir(anahtar).slice(0, 80);
+    const icerir = k.length >= 2 && a.length >= 2 && (k.includes(a) || a.includes(k));
+    const uzaklik = icerir ? Math.abs(k.length - a.length) / 2 : duzenlemeUzakligi(a, k);
+    puanli.push({ ad: adayKisalt(ad), uzaklik, sira: puanli.length });
+  }
+  return puanli.sort((x, y) => x.uzaklik - y.uzaklik || x.sira - y.sira).slice(0, enCok).map((x) => x.ad);
+}
+
+/** Hedef URL, mevcut belgeden yalnız #parça ile ayrılıyorsa (ve hedefte parça varsa) aynı belge gezinmesidir. */
+export function yalnizParcaFarki(mevcut, hedef) {
+  try {
+    const a = new URL(mevcut);
+    const b = new URL(hedef);
+    return b.href.includes('#') && a.href.split('#')[0] === b.href.split('#')[0];
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Raporda aynı (tür, şiddet, senaryo, ölçüm) bulgularını tek satıra toplar (hücre×tema tekrarını önler).
+ * `sonuc.json` ayrıntılı kalır; yalnız rapor gruplanır. Sıra ilk görülene göre korunur.
+ */
+export function bulgulariGrupla(bulgular) {
+  const harita = new Map();
+  for (const b of bulgular) {
+    const anahtar = [b.tur, b.siddet, b.senaryo, JSON.stringify(b.olcum)].join('\0');
+    let g = harita.get(anahtar);
+    if (!g) {
+      g = { ids: [], tur: b.tur, siddet: b.siddet, senaryo: b.senaryo, hucreler: [], olcum: b.olcum, mesaj: b.mesaj, kare: b.kare };
+      harita.set(anahtar, g);
+    }
+    g.ids.push(b.id);
+    if (!g.hucreler.includes(b.hucre)) g.hucreler.push(b.hucre);
+  }
+  return [...harita.values()];
+}
+
+// ---------------------------------------------------------------------------------------------
 // Argüman ve senaryo doğrulama
 // ---------------------------------------------------------------------------------------------
 
@@ -336,9 +447,14 @@ export function temaAyristir(ham) {
   return [...new Set(temalar)];
 }
 
+export function hareketAyristir(ham) {
+  if (ham !== 'azalt' && ham !== 'serbest') throw new KullanimHatasi(`--hareket yalnız azalt (varsayılan) ya da serbest olabilir: ${ham}`);
+  return ham;
+}
+
 function argumanAyristir(argv) {
   const a = {
-    senaryo: null, url: null, sun: null, out: null, matris: VARSAYILAN_MATRIS, tema: VARSAYILAN_TEMA,
+    senaryo: null, url: null, sun: null, out: null, matris: VARSAYILAN_MATRIS, tema: VARSAYILAN_TEMA, hareket: 'azalt',
     tekrar: 1, setup: null, beklenti: null, yasakDesen: null, raporSablon: null,
     timeoutMs: 180000, browser: null, help: false,
   };
@@ -352,6 +468,7 @@ function argumanAyristir(argv) {
       case '--out': a.out = degerAl(argv, ++i, arg); break;
       case '--matris': a.matris = degerAl(argv, ++i, arg); break;
       case '--tema': a.tema = degerAl(argv, ++i, arg); break;
+      case '--hareket': a.hareket = hareketAyristir(degerAl(argv, ++i, arg)); break;
       case '--tekrar': a.tekrar = pozitifTamsayi(degerAl(argv, ++i, arg), arg, 1, 5); break;
       case '--setup': a.setup = degerAl(argv, ++i, arg); break;
       case '--beklenti': a.beklenti = degerAl(argv, ++i, arg); break;
@@ -368,6 +485,7 @@ function argumanAyristir(argv) {
 const ADIM_ALANLARI = {
   goto: ['url'],
   click: ['role', 'name', 'metin'],
+  kaydir: ['role', 'name', 'metin'],
   fill: ['role', 'name', 'metin', 'deger'],
   press: ['tus'],
   waitFor: ['role', 'name', 'metin', 'kaybolur', 'zamanAsimiMs'],
@@ -400,7 +518,7 @@ export function senaryoDogrula(s) {
       }
     }
     if (i === 0 && tur !== 'goto') throw new KullanimHatasi('ilk adım "goto" olmalı');
-    const hedefli = ['click', 'fill', 'assertVisible', 'waitFor'].includes(tur);
+    const hedefli = ['click', 'kaydir', 'fill', 'assertVisible', 'waitFor'].includes(tur);
     if (hedefli) {
       const roleVar = typeof st.role === 'string' && st.role.trim() !== '';
       const metinVar = typeof st.metin === 'string' && st.metin.trim() !== '';
@@ -670,15 +788,16 @@ class CdpClient {
       return rejected;
     }
     let entry;
+    let timer;
     const promise = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         this.eventWaiters = this.eventWaiters.filter((w) => w !== entry);
         reject(new Error(`${method} eventi zaman aşımına uğradı`));
       }, ms);
       entry = { method, resolve: (p) => { clearTimeout(timer); resolve(p); } };
       this.eventWaiters.push(entry);
     });
-    promise.cancel = () => { this.eventWaiters = this.eventWaiters.filter((w) => w !== entry); };
+    promise.cancel = () => { clearTimeout(timer); this.eventWaiters = this.eventWaiters.filter((w) => w !== entry); };
     return promise;
   }
 }
@@ -740,12 +859,15 @@ function sayfaOlcumu() {
     if (px < 12) sonuc.kucukYazi.push({ oge: tanim(el), px });
   }
   sonuc.dokunma = [];
+  sonuc.dokunmaDenetlenen = null; // yalnız ≤480 px genişlikte denetlenir; diğerinde null ("denetlenmedi")
   if (window.innerWidth <= 480) {
+    sonuc.dokunmaDenetlenen = 0;
     const adaylar = document.querySelectorAll(
       'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=checkbox],[role=tab],[role=menuitem],[tabindex]:not([tabindex="-1"])',
     );
     for (const el of adaylar) {
       if (!gorunur(el) || el.disabled) continue;
+      sonuc.dokunmaDenetlenen++;
       const r = el.getBoundingClientRect();
       if (r.width >= 44 && r.height >= 44) continue;
       // Metin akışı içindeki satır içi bağlantılar dokunmatik hedef kuralından muaftır.
@@ -762,6 +884,7 @@ function sayfaOlcumu() {
   sonuc.hucre = {
     renkSemasiKoyu: matchMedia('(prefers-color-scheme: dark)').matches,
     azaltilmisHareket: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    kaydirmaY: Math.round(window.scrollY),
     dil: navigator.language,
     dateNow: Date.now(),
     baslik: document.title,
@@ -818,8 +941,8 @@ function odakHazirla() {
 }
 
 // Metin hedefi: görünür metni içeren EN DERİN öğe (tam eşleşme önceliklidir). Öğenin kendisini döndürür.
-function metinHedefi(metin) {
-  const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+// `n` = trEsle (Türkçe-bilinçli, büyük/küçük harf duyarsız); çağıran trEsle.toString() ile geçirir.
+function metinHedefi(metin, n) {
   const aranan = n(metin);
   let en = null;
   let enTam = false;
@@ -836,6 +959,31 @@ function metinHedefi(metin) {
     if ((tam && !enTam) || (tam === enTam && t.length < enUzunluk)) { en = el; enTam = tam; enUzunluk = t.length; }
   }
   return en;
+}
+
+// Bulunamayan metin hedefi için aday adlar: görünür, kısa metinli en derin öğelerin metni (en çok 300).
+function metinAdaylari() {
+  const sonuc = [];
+  const goruldu = new Set();
+  for (const el of document.body.querySelectorAll('*')) {
+    if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'].includes(el.tagName)) continue;
+    if (!el.getClientRects().length) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    const t = (el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+    if (!t || t.length > 60 || goruldu.has(t)) continue;
+    goruldu.add(t);
+    sonuc.push(t);
+    if (sonuc.length >= 300) break;
+  }
+  return sonuc;
+}
+
+// kaydir adımı: hedefi görünüme getirir (anında; yumuşak kaydırma kareyi kararsız yapmasın). this = öğe.
+function kaydirHedefe() {
+  const el = this.tagName === 'LABEL' && this.control ? this.control : this;
+  el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  return Math.round(window.scrollY);
 }
 
 // Hedef öğeyi görünüme getirip tıklanacak noktayı ve örtülü olup olmadığını döndürür (this = öğe).
@@ -945,11 +1093,11 @@ async function hedefDene(ctx, st) {
   const cdp = ctx.cdp;
   if (st.role) {
     const { nodes } = await cdp.send('Accessibility.getFullAXTree');
-    const rol = st.role.toLowerCase();
-    const ad = st.name !== undefined ? norm(st.name).toLowerCase() : null;
+    const rol = rolCoz(st.role);
+    const ad = st.name !== undefined ? trEsle(st.name) : null;
     for (const n of nodes) {
       if (n.ignored || !n.backendDOMNodeId || String(n.role?.value ?? '').toLowerCase() !== rol) continue;
-      if (ad !== null && norm(n.name?.value).toLowerCase() !== ad) continue;
+      if (ad !== null && trEsle(n.name?.value) !== ad) continue;
       let objectId;
       try { objectId = (await cdp.send('DOM.resolveNode', { backendNodeId: n.backendDOMNodeId })).object?.objectId; } catch { continue; }
       if (!objectId) continue;
@@ -957,9 +1105,41 @@ async function hedefDene(ctx, st) {
     }
     return null;
   }
-  const r = await cdp.send('Runtime.evaluate', { expression: `(${metinHedefi.toString()})(${JSON.stringify(st.metin)})`, returnByValue: false });
+  const r = await cdp.send('Runtime.evaluate', { expression: `(${metinHedefi.toString()})(${JSON.stringify(st.metin)}, ${trEsle.toString()})`, returnByValue: false });
   if (r.exceptionDetails) throw new Error(`sayfa betiği hatası: ${describeException(r.exceptionDetails)}`);
   return r.result.subtype === 'node' ? r.result.objectId : null;
+}
+
+/**
+ * Bulunamayan hedef için hata mesajına eklenir: bilinmeyen rol uyarısı ve sayfadaki en yakın aday adlar.
+ * Adaylar çıktıya gireceğinden yasak desen bekçisinden geçirilir (bekçiyi gevşetmez; yalnız aday listesini temizler).
+ */
+async function yakinAdayEki(ctx, st) {
+  const cdp = ctx.cdp;
+  let ek = '';
+  let adaylar = [];
+  let kapsam = '';
+  let aranan = st.metin;
+  if (st.role) {
+    const rol = rolCoz(st.role);
+    if (!ROL_LISTESI.includes(rol)) ek += `; "${st.role}" bilinen bir rol değil (geçerli roller: --help)`;
+    if (st.name === undefined) return ek;
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    const adli = nodes.filter((n) => !n.ignored && n.backendDOMNodeId && norm(n.name?.value) !== '');
+    const ayniRol = adli.filter((n) => String(n.role?.value ?? '').toLowerCase() === rol);
+    const kaynak = ayniRol.length ? ayniRol : adli.filter((n) => ETKILESIMLI_ROLLER.has(String(n.role?.value ?? '').toLowerCase()));
+    kapsam = ayniRol.length ? ` (rol ${rol})` : ' (etkileşimli öğeler)';
+    adaylar = kaynak.map((n) => norm(n.name.value));
+    aranan = st.name;
+  } else {
+    const r = await cdp.send('Runtime.evaluate', { expression: `(${metinAdaylari.toString()})()`, returnByValue: true });
+    adaylar = Array.isArray(r.result?.value) ? r.result.value : [];
+  }
+  // Önce mesajda görünecek biçime kes, SONRA süz: kesim bir sayıyı 11 haneye indirebilir (çıktıya giren metin taranır).
+  const temiz = adaylar.map(adayKisalt).filter((ad) => yasakTara({ dosyalar: [{ ad: 'aday', metin: ad }], ozel: ctx.ozel ?? [] }).length === 0);
+  const yakin = enYakinAdaylar(aranan, temiz, 5);
+  if (yakin.length) ek += `; sayfadaki en yakın adaylar${kapsam}: ${yakin.map((x) => `"${x}"`).join(', ')}`;
+  return ek;
 }
 
 async function hedefBul(ctx, st, bekleMs) {
@@ -971,7 +1151,7 @@ async function hedefBul(ctx, st, bekleMs) {
     ctx.requireTime('hedef bekleme');
     await sleep(50);
   }
-  throw new AdimHatasi(`hedef bulunamadı: ${hedefAciklama(st)}`);
+  throw new AdimHatasi(`hedef bulunamadı: ${hedefAciklama(st)}${await yakinAdayEki(ctx, st).catch(() => '')}`);
 }
 
 async function tusBas(cdp, ad) {
@@ -996,14 +1176,20 @@ async function sakinBekle(ctx, sakinMs = 150, azamiMs = 4000) {
 }
 
 async function yuklemeBekle(ctx, url) {
-  const yuk = ctx.cdp.waitForEvent('Page.loadEventFired');
-  yuk.catch(() => {});
-  const nav = await ctx.cdp.send('Page.navigate', { url });
-  if (nav.errorText) {
-    yuk.cancel();
-    throw new AdimHatasi(`gezinme başarısız: ${nav.errorText} (${yolMetni(url)})`);
+  // Aynı belgede yalnız #parça farkı: tarayıcı yük olayı üretmez (eskiden zaman aşımına düşüp koşuyu çıkış 3 ile
+  // bozuyordu); Page.navigatedWithinDocument beklenir. Yük olayı da yedek olarak dinlenir (aynı URL'ye yeniden
+  // gitmek bazı sürümlerde yeniden yükleme sayılır); hangisi önce gelirse.
+  const mevcut = await degerlendir(ctx.cdp, 'location.href').catch(() => '');
+  const olaylar = yalnizParcaFarki(mevcut, url) ? ['Page.navigatedWithinDocument', 'Page.loadEventFired'] : ['Page.loadEventFired'];
+  const beklemeler = olaylar.map((o) => { const w = ctx.cdp.waitForEvent(o); w.catch(() => {}); return w; });
+  const iptal = () => beklemeler.forEach((w) => w.cancel());
+  try {
+    const nav = await ctx.cdp.send('Page.navigate', { url });
+    if (nav.errorText) throw new AdimHatasi(`gezinme başarısız: ${nav.errorText} (${yolMetni(url)})`);
+    await Promise.race(beklemeler);
+  } finally {
+    iptal();
   }
-  await yuk;
 }
 
 async function kareKaydet(ctx, ad) {
@@ -1106,7 +1292,10 @@ async function kontrolNoktasi(ctx, kareAdi) {
   let o = null;
   try { o = await degerlendir(ctx.cdp, `(${sayfaOlcumu.toString()})()`); } catch (err) { hata('sayfa-olcumu', err); }
   if (o) {
-    cur.olcumler = { ...cur.olcumler, ...o.hucre, scrollWidth: o.tasma.scrollWidth, clientWidth: o.tasma.clientWidth, innerWidth: o.tasma.innerWidth };
+    cur.olcumler = {
+      ...cur.olcumler, ...o.hucre, scrollWidth: o.tasma.scrollWidth, clientWidth: o.tasma.clientWidth, innerWidth: o.tasma.innerWidth,
+      dokunmaDenetlenen: o.dokunmaDenetlenen, dokunmaKucuk: o.dokunma.length,
+    };
     if (o.tasma.scrollWidth > o.tasma.clientWidth + 1) {
       bulguEkle(cur, 'yatay-tasma', `Yatay taşma: scrollWidth ${o.tasma.scrollWidth} > innerWidth ${o.tasma.innerWidth}`,
         { scrollWidth: o.tasma.scrollWidth, clientWidth: o.tasma.clientWidth, innerWidth: o.tasma.innerWidth, tasanlar: o.tasma.tasanlar }, 'sayfa', kare);
@@ -1142,6 +1331,9 @@ async function kontrolNoktasi(ctx, kareAdi) {
   try {
     const g = await odakGezintisi(ctx);
     cur.olcumler.odakGezintisi = { odaklanabilir: g.adet, kontrolEdilen: g.kontrolEdilen, odaksiz: g.odaksiz.length };
+    cur.olcumler.odaklanabilir = g.adet;
+    cur.olcumler.odakKontrolEdilen = g.kontrolEdilen;
+    cur.olcumler.odakGorunen = g.kontrolEdilen - g.odaksiz.length;
     if (g.odaksiz.length) {
       bulguEkle(cur, 'odak-yok', `Tab ile odaklanınca görünür odak göstergesi yok: ${g.odaksiz.length} öğe`,
         { kontrolEdilen: g.kontrolEdilen, odaksiz: g.odaksiz.length, ornekler: g.odaksiz.slice(0, 3) }, g.odaksiz.join(';'), kare);
@@ -1166,6 +1358,18 @@ async function adimCalistir(ctx, st, no) {
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: k.x, y: k.y, button: 'left', clickCount: 1 });
       return;
     }
+    case 'kaydir': {
+      const nesne = await hedefBul(ctx, st, 3000);
+      let y = await nesneyeCagir(cdp, nesne, kaydirHedefe);
+      // Kaydırma oturana kadar KOŞULLU bekleme (sabit sleep yok): iki ardışık okuma aynı olunca devam.
+      for (let i = 0; i < 20; i++) {
+        await sleep(40);
+        const yeni = await degerlendir(cdp, 'Math.round(window.scrollY)');
+        if (yeni === y) break;
+        y = yeni;
+      }
+      return;
+    }
     case 'fill': {
       const nesne = await hedefBul(ctx, st, 3000);
       await nesneyeCagir(cdp, nesne, odakla);
@@ -1182,22 +1386,23 @@ async function adimCalistir(ctx, st, no) {
       const bitis = Date.now() + sinir;
       for (;;) {
         let bulundu;
-        if (st.metin) bulundu = (await govdeMetni(cdp)).includes(norm(st.metin));
+        if (st.metin) bulundu = trEsle(await govdeMetni(cdp)).includes(trEsle(st.metin));
         else bulundu = (await hedefDene(ctx, st)) !== null;
         if (st.kaybolur ? !bulundu : bulundu) return;
         if (Date.now() >= bitis) break;
         ctx.requireTime('waitFor');
         await sleep(50);
       }
-      throw new AdimHatasi(`zaman aşımı (${sinir} ms): ${st.kaybolur ? 'kaybolması beklenen' : 'beklenen'} ${hedefAciklama(st)}`);
+      const ek = st.kaybolur ? '' : await yakinAdayEki(ctx, st).catch(() => '');
+      throw new AdimHatasi(`zaman aşımı (${sinir} ms): ${st.kaybolur ? 'kaybolması beklenen' : 'beklenen'} ${hedefAciklama(st)}${ek}`);
     }
     case 'assertText': {
-      const bulundu = (await govdeMetni(cdp)).includes(norm(st.metin));
+      const bulundu = trEsle(await govdeMetni(cdp)).includes(trEsle(st.metin));
       if (st.yok ? bulundu : !bulundu) throw new AdimHatasi(`${st.yok ? 'bulunmaması gereken' : 'beklenen'} metin ${st.yok ? 'sayfada' : 'sayfada yok'}: "${kisalt(st.metin, 80)}"`);
       return;
     }
     case 'assertVisible': {
-      if (!(await hedefDene(ctx, st))) throw new AdimHatasi(`görünür öğe yok: ${hedefAciklama(st)}`);
+      if (!(await hedefDene(ctx, st))) throw new AdimHatasi(`görünür öğe yok: ${hedefAciklama(st)}${await yakinAdayEki(ctx, st).catch(() => '')}`);
       return;
     }
     case 'screenshot': {
@@ -1221,10 +1426,12 @@ function yeniKayit(ctx, hucre) {
 async function hucreOrtaminiKur(ctx, hucre) {
   const cdp = ctx.cdp;
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: hucre.genislik, height: hucre.yukseklik, deviceScaleFactor: 1, mobile: false });
+  // --hareket serbest: prefers-reduced-motion ZORLANMAZ (tarayıcı varsayılanı: no-preference).
+  const hareketOzelligi = ctx.a.hareket === 'serbest' ? [] : [{ name: 'prefers-reduced-motion', value: 'reduce' }];
   await cdp.send('Emulation.setEmulatedMedia', {
     features: [
       { name: 'prefers-color-scheme', value: hucre.tema === 'koyu' ? 'dark' : 'light' },
-      { name: 'prefers-reduced-motion', value: 'reduce' },
+      ...hareketOzelligi,
     ],
   });
   ctx.cur = null;
@@ -1266,6 +1473,8 @@ async function senaryoKos(ctx, hucre) {
     kayit.sureMs = Date.now() - t0;
   }
   await kontrolNoktasi(ctx, 'son');
+  // Hücre başına olay sayıları: "bulgu yok" olumlu kanıtla görünsün (rapordaki ölçüm özeti).
+  Object.assign(cur.olcumler, { konsolHata: cur.konsol.length, istisna: cur.istisna.length, agHata: cur.ag.length, disIstek: cur.dis.length });
   const sonKare = cur.kareler[cur.kareler.length - 1];
   for (const b of cur.bulgular.values()) if (!b.kare) b.kare = sonKare;
   cur.sonKare = sonKare;
@@ -1304,12 +1513,22 @@ function raporUret(sonuc, sablon) {
   const o = sonuc.ozet;
   const bulgular = sonuc.bulgular;
   const olcumMetni = (b) => tabloHucre(kisalt(JSON.stringify(b.olcum), 200));
-  const bulguTablosu = bulgular.length
-    ? ['| Kimlik | Şiddet | Tür | Senaryo | Hücre | Ölçüm | Kare |', '|---|---|---|---|---|---|---|',
-      ...bulgular.map((b) => `| ${b.id} | ${b.siddet} | ${b.tur} | ${tabloHucre(b.senaryo)} | ${b.hucre} | \`${olcumMetni(b)}\` | ${b.kare ? `[${path.basename(b.kare)}](${b.kare})` : '-'} |`),
+  // Aynı (tür, ölçüm) bulgusu hücre×tema kadar tekrarlanmaz: tek satır, hücreler listelenir (sonuc.json ayrıntılı kalır).
+  const gruplar = bulgulariGrupla(bulgular);
+  const idler = (g) => (g.ids.length > 6 ? `${g.ids.slice(0, 6).join(', ')} (+${g.ids.length - 6})` : g.ids.join(', '));
+  const bulguTablosu = gruplar.length
+    ? ['| Kimlik | Şiddet | Tür | Senaryo | Hücreler | Ölçüm | Kare |', '|---|---|---|---|---|---|---|',
+      ...gruplar.map((g) => `| ${idler(g)} | ${g.siddet} | ${g.tur} | ${tabloHucre(g.senaryo)} | ${g.hucreler.join(', ')} | \`${olcumMetni(g)}\` | ${g.kare ? `[${path.basename(g.kare)}](${g.kare})` : '-'} |`),
     ].join('\n')
     : 'Bulgu yok.';
-  const mesajlar = bulgular.length ? bulgular.map((b) => `- **${b.id}** (${b.siddet}, ${b.tur}, ${b.hucre}): ${tabloHucre(b.mesaj)}`).join('\n') : '';
+  const mesajlar = gruplar.length ? gruplar.map((g) => `- **${idler(g)}** (${g.siddet}, ${g.tur}, ${g.hucreler.join(', ')}): ${tabloHucre(g.mesaj)}`).join('\n') : '';
+  const sayi = (v) => (typeof v === 'number' ? String(v) : '-');
+  const ozetTablosu = ['| Hücre | scrollWidth / clientWidth | Odak (görünür / kontrol / odaklanabilir) | Dokunma hedefi (denetlenen / <44 px) | Konsol hata / istisna | Ağ hata | Dış istek |', '|---|---|---|---|---|---|---|',
+    ...sonuc.matris.map((h) => {
+      const m = h.olcumler;
+      const dokunma = typeof m.dokunmaDenetlenen === 'number' ? `${m.dokunmaDenetlenen} / ${sayi(m.dokunmaKucuk)}` : '- (yalnız ≤480 px)';
+      return `| ${h.hucre} | ${sayi(m.scrollWidth)} / ${sayi(m.clientWidth)} | ${sayi(m.odakGorunen)} / ${sayi(m.odakKontrolEdilen)} / ${sayi(m.odaklanabilir)} | ${dokunma} | ${sayi(m.konsolHata)} / ${sayi(m.istisna)} | ${sayi(m.agHata)} | ${sayi(m.disIstek)} |`;
+    })].join('\n');
   const kararsiz = sonuc.kararsiz.length
     ? sonuc.kararsiz.map((k) => `- ${k.hucre}: kararsız senaryo — ${k.fark}. Bu hücrenin bulguları ürün bulgusu SAYILMADI (sonuc.json > kararsizBulgular).`).join('\n')
     : 'Kararsız hücre yok.';
@@ -1326,6 +1545,7 @@ function raporUret(sonuc, sablon) {
     matris: sonuc.ayarlar.matris.join(', '), tema: sonuc.ayarlar.tema.join(', '), tekrar: String(sonuc.ayarlar.tekrar),
     engelleyici: String(o['ENGELLEYİCİ']), onemli: String(o['ÖNEMLİ']), kucuk: String(o['KÜÇÜK']), karar,
     bulgu_tablosu: bulguTablosu, bulgu_mesajlari: mesajlar, kararsiz, beklenti_tablosu: beklentiTablosu, matris_tablosu: matrisTablosu,
+    olcum_ozeti: ozetTablosu, hareket: sonuc.ayarlar.hareket === 'serbest' ? 'serbest (reduced-motion zorlanmadı)' : 'azalt (reduced-motion zorlandı)',
     olcum_uyarilari: olcumUyarilari.length ? olcumUyarilari.join('\n') : 'Ölçüm uyarısı yok.',
     tamamlandi: sonuc.tamamlandi ? 'evet' : `HAYIR (${sonuc.hata ?? 'bilinmeyen hata'})`,
   };
@@ -1349,7 +1569,7 @@ function sonucuYaz(ctx, tamamlandi, hata) {
     surum: 1,
     senaryo: { ad: ctx.sen.ad },
     hedef: { tur: ctx.a.sun ? 'sun' : 'url', adres: ctx.taban },
-    ayarlar: { matris: ctx.matris.map((m) => `${m.genislik}x${m.yukseklik}`), tema: ctx.temalar, tekrar: ctx.a.tekrar, setup: Boolean(ctx.a.setup) },
+    ayarlar: { matris: ctx.matris.map((m) => `${m.genislik}x${m.yukseklik}`), tema: ctx.temalar, hareket: ctx.a.hareket, tekrar: ctx.a.tekrar, setup: Boolean(ctx.a.setup) },
     tamamlandi, ...(hata ? { hata } : {}),
     ozet: say, cikis: tamamlandi ? kod : 3,
     bulgular, kararsizBulgular: ctx.kararsizBulgular, kararsiz: ctx.kararsiz, beklentiler,

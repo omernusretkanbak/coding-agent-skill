@@ -6,9 +6,8 @@ description: >-
   separate from the writer, probes the interface in a headless browser with
   scenario steps and produces a findings report. Keywords: UX sınama, arayüz
   testi, senaryo, sınayıcı, erişilebilirlik, yatay taşma, dokunmatik hedef,
-  odak, karanlık tema, mobil görünüm, bulgu raporu, ux-sinama.
-  Does not replace prove-it (which only verifies claims). Observes only: never
-  edits code, never touches non-local sites.
+  odak, karanlık tema, mobil görünüm. Observes only: never edits code or
+  touches non-local sites.
 ---
 
 # SINA — ux-sinama
@@ -29,16 +28,16 @@ Sınayıcı yazardan AYRI roldür (ayrı oturum/alt-ajan).
 ## Akış
 
 1. Görev tanımından kullanıcı yolculuklarını (en çok 6 senaryo) ve beklentileri yaz.
-2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri ve alanları `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`. Sahte değer kullan.
-3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (`--sun` yerine `--url http://127.0.0.1:<port>/`). Diğer seçenekler ve çıkış kodları `--help`'te. `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz.
-4. `RAPOR.md` özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.
+2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri, alanlar, geçerli roller `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`; eşleşme Türkçe-bilinçli ve büyük/küçük harf duyarsızdır (KATIL = katıl); `img` rolü `image` olur. Sayfanın aşağısı için `kaydir`, sonra `screenshot`. Sahte değer kullan.
+3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (ya da `--url http://127.0.0.1:<port>/`). `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz. `--hareket serbest`: reduced-motion zorlanmaz, geçici karşılama/modal sınanır. Ayrıntı `--help`'te.
+4. `RAPOR.md` ölçüm özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.
 5. Çıktılar yazarın PROOF'una (`docs/proof/<dal-slug>/`) bağlanır. ENGELLEYİCİ/ÖNEMLİ bulgu yazara döner; düzeltmeden sonra yeniden koşulur.
 
 ## Bulgu şiddeti
 
 - **ENGELLEYİCİ:** görev tamamlanamaz ya da güvenlik sınırı aşılır (başarısız adım, 127.0.0.1 dışına istek).
-- **ÖNEMLİ:** görev tamamlanır ama belirgin kusur (konsol hatası, 4xx/5xx, taşma, adsız düğme, `alt`sız görsel, odak yok, 24 px altı hedef, kanıtsız beklenti).
-- **KÜÇÜK:** cila (başlık atlaması, 24–44 px hedef, 12 px altı yazı). Dokunmatik hedef denetimi yalnız ≤480 px genişlikte.
+- **ÖNEMLİ:** görev tamamlanır ama belirgin kusur (konsol/ağ hatası, taşma, adsız düğme, odak yok, kanıtsız beklenti; tam liste `--help`).
+- **KÜÇÜK:** cila (başlık atlaması, 24–44 px hedef). Dokunmatik hedef denetimi yalnız ≤480 px genişlikte.
 
 Her bulgu = **senaryo adı + sayısal ölçüm + kare**; ölçümsüz bulgu yazılmaz.
 
@@ -51,4 +50,4 @@ Her bulgu = **senaryo adı + sayısal ölçüm + kare**; ölçümsüz bulgu yaz�
 
 ## Ne YAPMAZ
 
-En çok 12 görüntü açar; PROOF'a yerel yol/kullanıcı adı girmeden maskeler. Canlı siteyi gezmez, düzeltme uygulamaz, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa hata).
+En çok 12 görüntü açar; PROOF'a yerel yol/kullanıcı adı girmeden maskeler. Canlı siteyi gezmez, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa hata).

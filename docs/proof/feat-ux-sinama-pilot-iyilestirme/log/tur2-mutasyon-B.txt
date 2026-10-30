@@ -1,0 +1,35 @@
+✔ bulunamayan ad: hata mesajı sayfadaki en yakın aday adlarını (en çok 5) listeler (14218.9993ms)
+✔ aday adlar: numara/e-posta/11 haneli sayı taşıyan düğme adları mesaja SIZMAZ; sonuc.json yazılır (çıkış 1, 2 değil) (7082.795ms)
+✔ aday adlar: --yasak-desen özel deseni de aday adlarına uygulanır (6942.6123ms)
+✔ aday adlar: önce 50 karaktere kesilir, SONRA süzülür (kesim 11 haneli sayı sınırına denk gelirse sızmaz) (6970.0253ms)
+✖ trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC'siz karşılaştırma bunu ayırt edemezdi (1.0508ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36194.0956
+
+✖ failing tests:
+
+test at scripts\senaryo-kos.selftest.mjs:1184:1
+✖ trEsle: NFC ayrık işareti birleştirir (C + birleşik çengel → ç); NFC'siz karşılaştırma bunu ayırt edemezdi (1.0508ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'çok' !== 'çok'
+  
+      at TestContext.<anonymous> (file:///D:/tmp/mut-cas-ux-B/scripts/senaryo-kos.selftest.mjs:1185:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'çok',
+    expected: 'çok',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+cikis=1
