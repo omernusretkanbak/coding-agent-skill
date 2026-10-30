@@ -1,0 +1,7 @@
+{
+  "senaryo": "kayit-formu-kaydet",
+  "beklentiler": [
+    { "id": "B1", "metin": "Ad girilip Kaydet'e basılınca durum satırında 'Kaydedildi' görünür" },
+    { "id": "B2", "metin": "Ad boşken Kaydet'e basılınca hata mesajı görünür ve kayıt yapılmaz" }
+  ]
+}

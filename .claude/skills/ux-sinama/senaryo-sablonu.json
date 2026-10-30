@@ -1,0 +1,13 @@
+{
+  "ad": "kayit-formu-kaydet",
+  "adimlar": [
+    { "adim": "goto", "url": "/" },
+    { "adim": "fill", "role": "textbox", "name": "Ad", "deger": "Deneme Kullanıcı" },
+    { "adim": "click", "role": "button", "name": "Kaydet" },
+    { "adim": "waitFor", "metin": "Kaydedildi", "zamanAsimiMs": 5000, "beklenti": "B1" },
+    { "adim": "assertText", "metin": "Kaydedildi", "beklenti": "B1" },
+    { "adim": "assertVisible", "role": "status" },
+    { "adim": "press", "tus": "Tab" },
+    { "adim": "screenshot", "ad": "kaydedildi" }
+  ]
+}

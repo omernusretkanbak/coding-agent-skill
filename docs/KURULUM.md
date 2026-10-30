@@ -60,7 +60,7 @@ node scripts/kur.mjs --hedef <claude|codex|cursor|antigravity|hepsi> [--kapsam p
 | `--hedef codex` / `cursor` / `antigravity` | `.agents/skills` (üçü aynı klasörü paylaşır; aynı klasöre iki kez kopyalanmaz) |
 | `--hedef hepsi` | yukarıdakilerin tümü |
 | `--kapsam proje` (varsayılan) | depo kökü altına |
-| `--kapsam kullanici` | ev dizininiz altındaki karşılığına (`~/.claude/...`, `~/.agents/skills`). Dikkat: beş skill'i (özellikle geniş tetikleyicili `ship-it`) TÜM projelerinizde etkinleştirir; proje kapsamını öneririz. |
+| `--kapsam kullanici` | ev dizininiz altındaki karşılığına (`~/.claude/...`, `~/.agents/skills`). Dikkat: altı skill'i (özellikle geniş tetikleyicili `ship-it`) TÜM projelerinizde etkinleştirir; proje kapsamını öneririz. |
 | `--kuru` | yalnız ne yapacağını yazar, hiçbir şey yazmaz |
 | `--kontrol` | kanonik kaynak ile kopyaların birebir aynı olup olmadığını denetler; sapma varsa çıkış kodu 1. Hedefte olup kanonikte olmayan skill dizinleri yalnız "Uyarı" olarak listelenir (fazla dosya uyarısı bilgilendiricidir, çıkış kodunu değiştirmez) |
 | `--zorla` | farklı içerikli mevcut dosyanın üzerine yazar. Yedek ALMAZ: ezmeden önce `git status` ile durumu kontrol edin ya da yedek alın. Varsayılan: ezmez, uyarır, çıkış 1. |
@@ -186,6 +186,21 @@ Sıfırdan ürün için `mod dev-then-single-pr` verin: önce spec + backlog ona
 - Depo herkese açıksa PROOF.md ve REVIEW dosyaları da herkese açıktır: içlerine sır, kişisel veri, yerel dosya yolu ya da iç ağ adresi yazılmadığını PR'dan önce gözden geçirin.
 - Ekran görüntüsü için `capture-page.mjs` kullanın (yalnız sayfayı alır); tüm masaüstünü yakalayan yöntemler ilgisiz pencereleri ve özel içeriği görüntüye sokar.
 - `scripts/kur.mjs` yalnız dosya kopyalar; `--kapsam kullanici` ev dizininize yazar, `--kuru` ile önce bakın.
+
+## 6b. Arayüz sınaması: `ux-sinama` (isteğe bağlı)
+
+Arayüze dokunan bir değişiklikte, yazardan sonra ve `PROOF.md` kabul edilmeden önce, yazardan AYRI bir sınayıcı rolü senaryo bazlı sınama yapabilir. Rol sözleşmesi, akış, bulgu şiddeti ve sınırlar `.claude/skills/ux-sinama/SKILL.md`'dedir. Özet:
+
+```bash
+node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo senaryo.json --beklenti beklenti.json --sun <statik-dizin> --out <cikti-dizini> --tekrar 2
+```
+
+- Bağımlılık yok (Node ≥ 22 + Edge/Chrome). Tarayıcıyı `--browser` ya da `CAPTURE_BROWSER` ile gösterebilirsiniz.
+- Yalnız `http://127.0.0.1:<port>` sınanır; başka adres kodda reddedilir. `--sun` bir dizini salt-okunur sunar.
+- Senaryoda gerçek kişisel veri olamaz: 11 haneli sayı, TR cep telefonu ve e-posta bekçisi koşucu başlamadan çalışır; projeye özgü desenleri `--yasak-desen <dosya>` ile verin.
+- Çıkış kodları: 0 temiz/yalnız KÜÇÜK · 1 ENGELLEYİCİ/ÖNEMLİ bulgu · 2 kullanım/güvenlik · 3 koşucu hatası.
+- Testler: `node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs`. Tarayıcı yoksa tarayıcılı testler nedeniyle birlikte atlanır; CI'da `UX_SINAMA_TARAYICI_ZORUNLU=1` verin.
+- Bu sürümde görsel fark (piksel karşılaştırma) yoktur.
 
 ## 7. Sık sorun ve sorular
 

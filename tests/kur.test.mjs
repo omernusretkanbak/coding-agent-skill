@@ -72,6 +72,24 @@ test('--hedef codex: .agents/skills altında her skill dizini ve SKILL.md', () =
   assert.ok(!fs.existsSync(path.join(kok, '.agents', 'agents')));
 });
 
+test('ux-sinama: koşucu, şablonlar ve fixture\'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME)', () => {
+  const gerekli = [
+    'SKILL.md', 'RAPOR-template.md', 'senaryo-sablonu.json', 'beklenti-sablonu.json',
+    'scripts/senaryo-kos.mjs', 'scripts/senaryo-kos.selftest.mjs',
+    'fixtures/kusurlu/index.html', 'fixtures/temiz/index.html', 'fixtures/disari-istek/index.html',
+  ];
+  assert.ok(skillNames.includes('ux-sinama'), skillNames.join(','));
+  for (const g of gerekli) assert.ok(fs.existsSync(path.join(SKILLS, 'ux-sinama', g)), `kanonikte yok: ${g}`);
+  const kok = yeniKok();
+  const kuru = kos(['--hedef', 'codex', '--kuru'], { kok });
+  assert.equal(kuru.code, 0, kuru.out);
+  assert.match(kuru.out, /\(kuru\) \.agents\/skills\/ux-sinama\/scripts\/senaryo-kos\.mjs/);
+  assert.ok(!fs.existsSync(path.join(kok, '.agents')), '--kuru hiçbir şey yazmamalı');
+  const r = kos(['--hedef', 'codex'], { kok });
+  assert.equal(r.code, 0, r.out);
+  for (const g of gerekli) assert.ok(fs.existsSync(path.join(kok, '.agents', 'skills', 'ux-sinama', g)), `kopyalanmadı: ${g}`);
+});
+
 test('--hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası', () => {
   const kok = yeniKok();
   const ev = yeniEv();
