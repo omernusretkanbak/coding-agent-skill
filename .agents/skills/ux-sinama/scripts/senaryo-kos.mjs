@@ -33,7 +33,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import {
   mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync,
-  realpathSync, readdirSync, statSync, lstatSync,
+  realpathSync, readdirSync, statSync, lstatSync, unlinkSync,
 } from 'node:fs';
 import { createServer } from 'node:http';
 import os from 'node:os';
@@ -94,8 +94,11 @@ genişlikte), Tab ile görünür odak, yazı < 12 px. Çalıştırılamayan dene
   KÜÇÜK        cila: başlık atlaması, 24-44 px dokunmatik hedef, 12 px altı yazı, favicon.ico 404
 
 Sınır: ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir. Yeni pencere/sekme
-(window.open, target=_blank) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür (best-effort:
---block-new-web-contents de verilir). WebSocket, WebRTC ve worker kapsam dışıdır.
+(window.open, target=_blank) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür
+(--proxy-bypass-list=<-loopback>;127.0.0.1 ile yalnız 127.0.0.1 muaftır; --block-new-web-contents de verilir ama
+bu tarayıcıda etkisiz çıkabilir). Kurumsal ProxySettings ilkesi bu bayrakları ezebilir. WebSocket, WebRTC ve
+worker kapsam dışıdır.
+Çıktı bekçisi tetiklenirse bu koşunun yazdığı kareler silinir ("N kare silindi"); silinemeyen "KALDI, elle silin".
 
 Çıkış kodları: 0 temiz/yalnız KÜÇÜK, 1 ENGELLEYİCİ/ÖNEMLİ bulgu, 2 kullanım/güvenlik/tarayıcı yok, 3 koşucu hatası.
 `;
@@ -514,7 +517,11 @@ function countByProfileDir(profileDir) {
 export function tarayiciBayraklari(profileDir, { proxyPort = 1 } = {}) {
   return [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check',
-    '--block-new-web-contents', `--proxy-server=127.0.0.1:${proxyPort}`, 'about:blank',
+    '--block-new-web-contents', `--proxy-server=127.0.0.1:${proxyPort}`,
+    // Chromium'un örtük bypass'ı loopback'e ek olarak link-local (169.254/16, fe80::/10) ve localhost/*.localhost
+    // adlarını da proxy'siz çıkarır; <-loopback> bunu kaldırır, yalnız 127.0.0.1 muaf kalır.
+    '--proxy-bypass-list=<-loopback>;127.0.0.1',
+    'about:blank',
   ];
 }
 
@@ -1003,8 +1010,23 @@ async function kareKaydet(ctx, ad) {
   const shot = await ctx.cdp.send('Page.captureScreenshot', { format: 'png' });
   const dosya = `${slug(ctx.sen.ad)}_${ctx.cur.hucre}_${slug(ad)}.png`;
   mkdirSync(path.join(ctx.out, 'kareler'), { recursive: true });
-  writeFileSync(path.join(ctx.out, 'kareler', dosya), Buffer.from(shot.data, 'base64'));
+  const tam = path.join(ctx.out, 'kareler', dosya);
+  writeFileSync(tam, Buffer.from(shot.data, 'base64'));
+  ctx.yazilanKareler.add(tam); // yalnız BU koşunun yazdıkları; çıktı bekçisi tetiklenirse silinir
   return `kareler/${dosya}`;
+}
+
+/**
+ * Verilen kare dosyalarını siler (yalnız çağıranın verdiği yollar). Silinemeyenler `kalan`da döner;
+ * zaten olmayan (ENOENT) dosya kalan sayılmaz. `sil` yalnız test için değiştirilebilir.
+ */
+export function kareleriSil(yollar, sil = unlinkSync) {
+  const silinen = [];
+  const kalan = [];
+  for (const y of yollar) {
+    try { sil(y); silinen.push(y); } catch (err) { if (err?.code !== 'ENOENT') kalan.push(y); }
+  }
+  return { silinen, kalan };
 }
 
 /** Bulgu ekler; aynı anahtar aynı hücre koşusunda bir kez kaydedilir. */
@@ -1344,6 +1366,10 @@ function sonucuYaz(ctx, tamamlandi, hata) {
   if (yasaklar.length) {
     console.error('Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.');
     for (const y of yasaklar) console.error(`  ${y.dosya}:${y.satir}  desen=${y.desen}`);
+    // Bu koşunun yazdığı kareler de ekran içeriği taşır: silinir (başkasının dosyasına dokunulmaz).
+    const { silinen, kalan } = kareleriSil([...ctx.yazilanKareler]);
+    console.error(`${silinen.length} kare silindi.`);
+    for (const k of kalan) console.error(`KALDI, elle silin: ${path.relative(ctx.out, k).replace(/\\/g, '/')}`);
     console.error('Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.');
     return { kod: 2, say, yasak: true };
   }
@@ -1422,7 +1448,7 @@ async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, rap
   };
   const ctx = {
     a, sen, beklenti, matris, temalar, raporSablon, ozel, out: path.resolve(a.out), remainingMs, requireTime,
-    taban: null, cdp: null, cur: null, hucreSonuclari: [], sayilanBulgular: [], kararsizBulgular: [], kararsiz: [], kararliKayitlar: [],
+    yazilanKareler: new Set(), taban: null, cdp: null, cur: null, hucreSonuclari: [], sayilanBulgular: [], kararsizBulgular: [], kararsiz: [], kararliKayitlar: [],
   };
   let kod = 3;
   try {

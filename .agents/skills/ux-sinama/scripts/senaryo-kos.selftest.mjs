@@ -133,7 +133,7 @@ const MIN_SENARYO = { ad: 'asgari', adimlar: [{ adim: 'goto', url: '/' }] };
 
 test('modül yüklenir ve beklenen işlevleri dışa aktarır', () => {
   assert.ok(mod, `senaryo-kos.mjs yüklenemedi: ${modHata}`);
-  for (const ad of ['urlBekcisi', 'yasakTara', 'statikSunucuBaslat', 'tarayiciBul', 'tarayiciBayraklari', 'killByProfileDir']) {
+  for (const ad of ['urlBekcisi', 'yasakTara', 'statikSunucuBaslat', 'tarayiciBul', 'tarayiciBayraklari', 'killByProfileDir', 'kareleriSil']) {
     assert.equal(typeof mod[ad], 'function', `${ad} dışa aktarılmalı`);
   }
 });
@@ -383,11 +383,15 @@ test('SKILL.md: hafif kalır (≤550 sözcük), ağ sınırı dürüst (WebSocke
   assert.match(sablon, /480/);
 });
 
+// SÖZLEŞME KİLİDİ (tautolojik): bayrak listesinin kendisini sınar. Gerçek kanıt aşağıdaki "proxy:" testidir
+// (gerçek tarayıcı + izleyen vekil): bayrakların işe yaradığını yalnız o gösterir.
 test('tarayiciBayraklari: yeni hedefler engelli, loopback dışı trafik ölü proxy\'de, profil dizini ve about:blank korunur', () => {
   assert.ok(mod, 'modül yok');
   const b = mod.tarayiciBayraklari('PROFIL-X');
   assert.ok(b.includes('--block-new-web-contents'));
   assert.ok(b.includes('--proxy-server=127.0.0.1:1'));
+  // Chromium'un örtük bypass'ı (loopback + link-local + localhost adları) kaldırılır, yalnız 127.0.0.1 muaf kalır
+  assert.ok(b.includes('--proxy-bypass-list=<-loopback>;127.0.0.1'), b.join(' '));
   assert.ok(b.includes('--user-data-dir=PROFIL-X'));
   assert.ok(b.includes('--headless=new'));
   assert.equal(b[b.length - 1], 'about:blank');
@@ -750,6 +754,46 @@ test('çıktı bekçisi: konsola 11 haneli sayı basan sayfa → sonuc.json ve R
   }
 });
 
+test('kareleriSil: yalnız verilen yolları siler, silinemeyeni "kalan" olarak döndürür (başkasının dosyasına dokunmaz)', () => {
+  assert.ok(mod, 'modül yok');
+  const silinmeyen = [];
+  const sahteSil = (p) => {
+    if (p.endsWith('kilitli.png')) throw new Error('EPERM');
+    silinmeyen.push(p);
+  };
+  const r = mod.kareleriSil(['kareler/a.png', 'kareler/kilitli.png', 'kareler/b.png'], sahteSil);
+  assert.deepEqual(r.silinen, ['kareler/a.png', 'kareler/b.png']);
+  assert.deepEqual(r.kalan, ['kareler/kilitli.png']);
+  assert.deepEqual(silinmeyen, ['kareler/a.png', 'kareler/b.png']);
+  assert.deepEqual(mod.kareleriSil([], sahteSil), { silinen: [], kalan: [] });
+  // yazılmamış (ENOENT) dosya "kaldı" sayılmaz
+  const enoent = mod.kareleriSil(['x.png'], () => { const e = new Error('yok'); e.code = 'ENOENT'; throw e; });
+  assert.deepEqual(enoent, { silinen: [], kalan: [] });
+});
+
+test('çıktı bekçisi: tetiklenince bu koşunun kareleri SİLİNİR (başkasının dosyası kalır), stderr\'de sayı yazılır, değer yazılmaz', B_ATLA, async () => {
+  const sunucu = sayfaSunucusu('<h1>Sızıntı</h1><script>console.error("kimlik " + "1234567" + "8901")</script>');
+  await dinle(sunucu);
+  try {
+    const sen = yaz('c/kare-sil.json', { ad: 'kare-sil', adimlar: [{ adim: 'goto', url: '/' }, { adim: 'screenshot', ad: 'ilk' }] });
+    const out = path.join(tmpDir, 'c/kare-sil-out');
+    mkdirSync(path.join(out, 'kareler'), { recursive: true });
+    writeFileSync(path.join(out, 'kareler', 'baska.png'), 'BASKASININ');
+    const r = await kos(['--senaryo', sen, '--url', `http://127.0.0.1:${sunucu.address().port}/`, '--matris', '1280x800', '--tema', 'acik', '--out', out]);
+    assert.equal(r.status, 2, `stderr:\n${r.stderr}`);
+    const kalan = readdirSync(path.join(out, 'kareler'));
+    assert.deepEqual(kalan, ['baska.png'], `bu koşunun kareleri silinmeliydi; kalanlar: ${kalan.join(', ')}`);
+    assert.equal(readFileSync(path.join(out, 'kareler', 'baska.png'), 'utf8'), 'BASKASININ');
+    const m = r.stderr.match(/(\d+) kare silindi/);
+    assert.ok(m && Number(m[1]) >= 2, `stderr'de "N kare silindi" (N>=2: screenshot + son kare) yok:\n${r.stderr}`);
+    assert.doesNotMatch(r.stderr, /KALDI/);
+    assert.doesNotMatch(r.stderr + r.stdout, /12345678901/);
+    assert.equal(existsSync(path.join(out, 'sonuc.json')), false);
+  } finally {
+    await kapat(sunucu);
+  }
+});
+
 test('çıktı bekçisi: --yasak-desen özel desenleri de çıktıda uygulanır', B_ATLA, async () => {
   const sunucu = sayfaSunucusu('<h1>Sızıntı</h1><script>console.error("GIZLIMARKA-" + 7)</script>');
   await dinle(sunucu);
@@ -790,6 +834,9 @@ test('proxy: loopback proxy\'den muaftır (sınama bozulmaz), loopback dışı t
     if (req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end('<!doctype html><title>p</title><img alt="dış" src="http://192.0.2.1/dis.png"><img alt="iç" src="/ok.svg">'
+        // Chromium'un örtük bypass kuralları (link-local, *.localhost) <-loopback> ile kaldırılmış olmalı: bunlar da vekile düşer.
+        // Adresler kasıtlı olarak "metadata ucu" (169.254.169.254) DEĞİL; vekil ölü/izleyici olduğundan dışarı bir şey çıkmaz.
+        + '<img alt="ll4" src="http://169.254.1.1/ll4.png"><img alt="ll6" src="http://[fe80::1]/ll6.png"><img alt="lh" src="http://deneme.localhost/lh.png">'
         + `<script>window.open('http://127.0.0.1:${yerel.address().port}/popup-yerel'); window.open('http://192.0.2.1/popup-dis');</script>`);
     } else {
       res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
@@ -805,13 +852,19 @@ test('proxy: loopback proxy\'den muaftır (sınama bozulmaz), loopback dışı t
     args.splice(args.length - 1, 1, '--disable-popup-blocking', `http://127.0.0.1:${yerel.address().port}/`);
     child = spawn(mod.tarayiciBul(null), args, { stdio: 'ignore' });
     const bitis = Date.now() + 25000;
-    while (Date.now() < bitis && !(proxyGoruldu.some((u) => /192\.0\.2\.1/.test(u)) && yerelGoruldu.includes('/ok.svg'))) {
+    const hepsiGoruldu = () => /192\.0\.2\.1/.test(proxyGoruldu.join(' ')) && /169\.254\.1\.1/.test(proxyGoruldu.join(' '))
+      && /fe80::1/.test(proxyGoruldu.join(' ')) && /deneme\.localhost/.test(proxyGoruldu.join(' ')) && yerelGoruldu.includes('/ok.svg');
+    while (Date.now() < bitis && !hepsiGoruldu()) {
       await new Promise((res) => setTimeout(res, 200));
     }
     await new Promise((res) => setTimeout(res, 2000)); // popup'ların oturması için
     assert.ok(yerelGoruldu.includes('/ok.svg'), `loopback hedefi proxy'siz yüklenmeli: ${yerelGoruldu.join(',')}`);
     assert.ok(proxyGoruldu.some((u) => /192\.0\.2\.1/.test(u)), `dış istek proxy'ye düşmeli: ${proxyGoruldu.join(',')}`);
     assert.equal(proxyGoruldu.some((u) => /127\.0\.0\.1/.test(u)), false, 'loopback proxy\'ye gitmemeli');
+    // örtük bypass kaldırıldı: link-local ve *.localhost adları proxy'siz doğrudan çıkmaz, vekile düşer
+    for (const [ad, re] of [['169.254.x', /169\.254\.1\.1/], ['fe80::', /fe80::1/], ['*.localhost', /deneme\.localhost/]]) {
+      assert.ok(proxyGoruldu.some((u) => re.test(u)), `${ad} vekile düşmeli (örtük bypass kaldırılmalı): ${proxyGoruldu.join(',')}`);
+    }
     // yeni hedef: açıldıysa (loopback popup yüklendiyse) dış popup'ı da proxy'ye düşmüş olmalı; açılmadıysa
     // (--block-new-web-contents etkiliyse) yeni hedef zaten yok. İki durumda da doğrudan dış çıkış yok.
     if (yerelGoruldu.includes('/popup-yerel')) {

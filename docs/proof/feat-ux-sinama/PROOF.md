@@ -83,8 +83,8 @@ Orkestratör, 2026-10-30, cwd = worktree, yazar raporuna dayanmadan kendi koşus
 ## Kapsam dışı / bilinen eksikler
 - Görsel fark (piksel karşılaştırma) yok; sonraki sürüm.
 - Ham test logları `*.log` olduğu için `.gitignore` tarafından commit dışıdır; sayılar yukarıda alıntılanmıştır. Alıntılarda yerel yol/geçici dizin adı yoktur; ham loglarda vardır (commit'e girmez).
-- 127.0.0.1 dışı engeli CDP `Fetch` alanı üzerindendir ve yalnız ANA SAYFA hedefinin HTTP(S) istek ve yönlendirmelerini kapsar. Kapsam dışı: WebSocket, WebRTC, worker ve `window.open`/`target=_blank` ile açılan yeni hedefler Fetch'ten geçmez. Yeni hedeflerin loopback dışı trafiği `--proxy-server=127.0.0.1:1` (ölü proxy) ile durdurulur; garanti HTTP(S) içindir, WebSocket/WebRTC için verilmez (SKILL.md "Sınır" bölümü bunu söyler).
-- Sınama kareleri ekrandaki her şeyi alır ve rapor konsol/öğe metnini içerir; kişisel/sağlık verisi taşıyan arayüzlerde çalıştırılmaz (SKILL.md "Sınır"). Çıktı bekçisi (sonuc.json/RAPOR.md taraması) yalnız 11 hane, TR cep telefonu, e-posta ve özel desenleri yakalar; ad/adres gibi gerisi ve PNG kareleri kapsam dışıdır (rapor yazılmasa bile bekçi tetiklenmeden önce alınan kareler `--out` altında kalabilir).
+- 127.0.0.1 dışı engeli CDP `Fetch` alanı üzerindendir ve yalnız ANA SAYFA hedefinin HTTP(S) istek ve yönlendirmelerini kapsar. Kapsam dışı: WebSocket, WebRTC, worker ve `window.open`/`target=_blank` ile açılan yeni hedefler Fetch'ten geçmez. Yeni hedeflerin loopback dışı trafiği `--proxy-server=127.0.0.1:1` (ölü proxy) ve `--proxy-bypass-list=<-loopback>;127.0.0.1` ile durdurulur (örtük bypass kaldırıldığından link-local ve `*.localhost` da vekile düşer; kurumsal ProxySettings ilkesi bayrakları ezebilir; `--block-new-web-contents` bu tarayıcıda etkisiz çıkabilir); garanti HTTP(S) içindir, WebSocket/WebRTC için verilmez (SKILL.md "Sınır" bölümü bunu söyler).
+- Sınama kareleri ekrandaki her şeyi alır ve rapor konsol/öğe metnini içerir; kişisel/sağlık verisi taşıyan arayüzlerde çalıştırılmaz (SKILL.md "Sınır"). Çıktı bekçisi (sonuc.json/RAPOR.md taraması) yalnız 11 hane, TR cep telefonu, e-posta ve özel desenleri yakalar; ad/adres gibi gerisi ve PNG karelerin İÇERİĞİ kapsam dışıdır (kareler taranmaz). Bekçi tetiklenirse bu koşunun yazdığı kareler silinir ve "N kare silindi" yazılır (Tur 3); kare artık kalmaz, yalnız silinemeyen durumda `KALDI, elle silin: <yol>` satırı çıkar.
 - Örtülü öğe denetimi yalnız tıklanacak noktanın `elementFromPoint` ile sınanmasıdır; `click` için kapsam budur, ayrı bir fixture testi yoktur.
 - `ux-sinama` ajan tanım dosyası / `roller/` bilinçli olarak eklenmedi (görev kapsamı dışı).
 
@@ -146,5 +146,42 @@ Orkestratör (2026-10-30), kendi koşusu, yazar raporuna dayanmadan:
 - [x] `UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` -> tests 30, pass 30, fail 0, skipped 0 (~112 sn; yazarın başlık-yorumu düzeltmesinden SONRA koşuldu).
 - [x] `node scripts/kur.mjs --hedef hepsi --kontrol` -> "kanonik kaynak ile kopyalar birebir aynı"; `node --check` senaryo-kos.mjs temiz; `wc -w SKILL.md` = 544.
 - [x] Kapsam: `git diff --stat` 9 dosya (+616/-216), yeni izlenmeyen dosya yok; yalnız skill dosyaları, aynaları ve PROOF değişti.
-- [x] Sızıntı taraması (grep: kişisel ad, yerel yol, eczane/hasta, hub terimleri, özel altyapı, proje adları) skill dizini ve PROOF'ta eşleşme yok.
+- [x] Sızıntı taraması (grep: kişisel ad, yerel yol, sağlık verisi, özel altyapı ve proje adları) skill dizini ve PROOF'ta eşleşme yok.
 - Yazar sapması, orkestratör kararı: `--block-new-web-contents` bu başsız Edge'de etkisiz, gerçek tutucu ölü proxy; bayrak "best-effort" olarak `--help`'te işaretli kalır (zararsız savunma derinliği). Çıktı bekçisi tetiklenince PNG kareler `--out` altında kalabilir (PROOF "Kapsam dışı"da yazılı).
+
+## Tur 3 (Fable Tur 2 bulguları)
+
+Tur: 3 · Yazar modeli: sonnet · Kapsam: `.claude/skills/ux-sinama/` (kanonik) + `.agents/skills/ux-sinama/` (ayna, `kur.mjs --hedef hepsi --zorla` ile eşitlendi).
+
+### İddia (Tur 3)
+- [ ] T3-1. (ÖNEMLİ-A) Çıktı bekçisi tetiklenince bu koşunun yazdığı kare dosyaları silinir (yalnız koşucunun kendi yazdığı yollar; `--out/kareler` içindeki başkasının dosyası kalır), stderr'e "N kare silindi" yazılır, silinemeyen için "KALDI, elle silin: <göreli yol>" satırı çıkar; çıkış 2, eşleşen değer çıktıda yok. SKILL.md "Sınır" ve bu PROOF "Kapsam dışı" buna göre güncellendi.
+- [ ] T3-2. (ÖNEMLİ-B) Tarayıcı `--proxy-bypass-list=<-loopback>;127.0.0.1` ile başlar: örtük bypass (link-local 169.254/16, fe80::/10, `*.localhost`) kalkar, yalnız 127.0.0.1 muaf. Gerçek tarayıcı + izleyen vekil testi: `169.254.1.1`, `[fe80::1]` ve `deneme.localhost` istekleri vekile düşer, 127.0.0.1 vekile uğramaz ve hâlâ yüklenir. `--block-new-web-contents` ibaresine "bu tarayıcıda etkisiz çıkabilir" ve ProxySettings ilkesi notu SKILL.md ile `--help`'e eklendi.
+- [ ] T3-3. (KÜÇÜK) `tarayiciBayraklari` birim testi "sözleşme kilidi; gerçek kanıt proxy testi" diye yorumlandı (silinmedi).
+
+### Önce (kırmızı; testler koddan ÖNCE) [log/tur3-kirmizi.log]
+```
+--test-name-pattern="kareleriSil|tarayiciBayraklari|kareleri SİLİNİR|modül yüklenir"  → ℹ tests 4 · pass 0 · fail 4
+  (kareleriSil dışa aktarılmıyor; bypass-list bayrağı yok; bekçi sonrası kareler diskte kalıyordu)
+```
+Proxy testinin link-local eklemesi kırmızı olarak KOŞULMADI: bypass kuralı yokken tarayıcı gerçek ağa link-local isteği atardı (görev kuralı: gerçek ağa istek yok). Doğrulama yalnız bayraklı (yeşil) durumda koşuldu; kırmızısı bayrak birim testiyle gösterilir.
+
+### Sonra [log/tur3-ux.log, tur3-kur.log, tur3-capture.log]
+```
+node --test tests/kur.test.mjs                                         → ℹ tests 21 · pass 21 · fail 0 · skipped 0   (çıkış 0)
+node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs  → ℹ tests 17 · pass 17 · fail 0 · skipped 0   (çıkış 0)   [ux selftest ile eş zamanlı DEĞİL]
+UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs
+                                                                       → ℹ tests 32 · pass 32 · fail 0 · skipped 0 · duration_ms 122055   (çıkış 0)
+node scripts/kur.mjs --hedef hepsi --kontrol                           → "Kontrol: kanonik kaynak ile kopyalar birebir aynı."
+wc -w .claude/skills/ux-sinama/SKILL.md                                → 545
+```
+30 → 32: +2 test (`kareleriSil` birim testi, bekçi-sonrası kare temizliği tarayıcılı test). Mevcut proxy testi genişletildi (sayı değişmedi).
+
+## Tur 3 — Orkestratör doğrulaması
+Orkestratör (2026-10-30), kendi koşusu, sırayla (eş zamanlı değil):
+- [x] `node --test tests/kur.test.mjs` -> tests 21, pass 21, fail 0.
+- [x] `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs` -> tests 17, pass 17, fail 0.
+- [x] `UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` -> tests 32, pass 32, fail 0, skipped 0 (~115 sn).
+- [x] `node scripts/kur.mjs --hedef hepsi --kontrol` -> "kanonik kaynak ile kopyalar birebir aynı"; `node --check` temiz; `wc -w SKILL.md` = 545.
+- [x] Kapsam: `git diff --stat` 7 dosya (+224/-40), yeni izlenmeyen dosya yok.
+- [x] Sızıntı taraması (kişisel ad, yerel yol, sağlık verisi, özel altyapı ve proje adları): skill dizini ve PROOF'ta eşleşme yok.
+- Orkestratörce DENENMEDİ: link-local proxy davranışının kırmızısı (gerçek ağa istek atmamamak için; yazar belirtti), kurumsal ProxySettings ilkesinin bayrağı ezmesi.

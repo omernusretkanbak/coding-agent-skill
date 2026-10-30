@@ -15,13 +15,13 @@ description: >-
 
 **Duyuru:** "`ux-sinama` skill'ini kullanıyorum: arayüzü bağımsız bir sınayıcı gözüyle senaryo bazlı sınıyorum."
 
-Arayüze dokunan her değişiklikte, yazar bittikten ve `prove-it` kanıtından önce; arka uç/betik/belge değişikliğinde değil. `prove-it` iddiayı kanıtlar; bu skill iddia edilmemiş kusurları arar. Rapor PROOF'a girdi olur.
+Arayüze dokunan her değişiklikte, yazar bittikten ve `prove-it` kanıtından önce; arka uç/betik/belge değişikliğinde değil. `prove-it` iddiayı kanıtlar; bu skill iddia edilmemiş kusurları arar.
 
 ## Rol sözleşmesi
 
-Sınayıcı yazardan AYRI roldür (ayrı oturum ya da alt-ajan; yazarın bağlamını görmez).
+Sınayıcı yazardan AYRI roldür (ayrı oturum/alt-ajan).
 
-- **Kod değiştirmez**, `git add/commit/push` yapmaz. Yazdığı tek şey senaryo, beklenti ve rapordur. Düzeltme yazarındır; bulgu satırına en çok bir cümle öneri yazılabilir.
+- **Kod değiştirmez**, `git add/commit/push` yapmaz; yalnız senaryo, beklenti ve rapor yazar. Düzeltme yazarındır; bulguya en çok bir cümle öneri eklenebilir.
 - **Beklentiler sayfa AÇILMADAN yazılır** (`beklenti-sablonu.json`): beklenti sayfayı değil görevi izler.
 - **Kırmızı-önce:** yeni davranış adımları mümkünse değişiklik öncesi tabanda KIRMIZI görülür; taban yoksa nedeni rapora yazılır.
 - **Her beklenti kanıtlanır:** adıma `"beklenti": "B1"` yazılır; bağlanmayan beklenti ÖNEMLİ bulgudur.
@@ -29,7 +29,7 @@ Sınayıcı yazardan AYRI roldür (ayrı oturum ya da alt-ajan; yazarın bağlam
 ## Akış
 
 1. Görev tanımından kullanıcı yolculuklarını (en çok 6 senaryo) ve beklentileri yaz.
-2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri ve alanları `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`; CSS/XPath reddedilir. Sahte değer kullan.
+2. Senaryoyu yaz (`senaryo-sablonu.json`; adım türleri ve alanları `--help`'te). Hedef yalnız `role`+`name` ya da görünür `metin`. Sahte değer kullan.
 3. Koş: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo s.json --beklenti b.json --sun <dizin> --out <çıktı> --tekrar 2` (`--sun` yerine `--url http://127.0.0.1:<port>/`). Diğer seçenekler ve çıkış kodları `--help`'te. `--tekrar 2`: sonuç farklıysa hücre "kararsız" sayılır, ürün bulgusu olmaz.
 4. `RAPOR.md` özetini ve bulgu tablosunu oku; kareleri yalnız bulguyu doğrulamak için aç.
 5. Çıktılar yazarın PROOF'una (`docs/proof/<dal-slug>/`) bağlanır. ENGELLEYİCİ/ÖNEMLİ bulgu yazara döner; düzeltmeden sonra yeniden koşulur.
@@ -46,13 +46,9 @@ Her bulgu = **senaryo adı + sayısal ölçüm + kare**; ölçümsüz bulgu yaz�
 
 - **Kişisel ya da sağlık verisi taşıyan arayüzlerde çalıştırılmaz: kareler ekrandaki her şeyi alır, rapor konsol ve öğe metnini içerir; bu ekranları insan gözle sına.**
 - Yalnız `http://127.0.0.1:<port>/`; `localhost`, başka IP, `https`, `file:` çıkış 2. `--sun` dizini salt-okunur sunulur.
-- Ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir (ENGELLEYİCİ `dis-istek`). Yeni pencere/sekme (`window.open`, `_blank`) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür. WebSocket/WebRTC kapsam dışıdır: garanti yok.
-- **Yasak desen bekçisi** girdiyi (senaryo, beklenti, `--setup`, `--sun` metinleri) ve ÇIKTIYI (`sonuc.json`, `RAPOR.md`) tarar; şu biçimleri kodda yakalar: 11 hane, TR cep telefonu, e-posta, `--yasak-desen` desenleri. Eşleşmede iş başlamaz/dosya yazılmaz (çıkış 2); yalnız `dosya:satır` yazılır. Ad/adres gibi gerisi sınayıcının sorumluluğudur.
-
-## Bağlam disiplini
-
-En çok 12 görüntü aç; terminalde yalnız `ÖZET:` ve çıkış kodu yeter. PROOF'a yerel yol ya da kullanıcı adı girmeden maskele.
+- Ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir (ENGELLEYİCİ `dis-istek`). Yeni pencere/sekme (`window.open`, `_blank`) bu bekçiden geçmez; onların loopback dışı trafiği (link-local, `*.localhost` dahil) ölü proxy'de ölür; `--block-new-web-contents` bu tarayıcıda etkisiz çıkabilir, kurumsal ProxySettings ilkesi proxy bayrağını ezebilir. WebSocket/WebRTC kapsam dışıdır: garanti yok.
+- **Yasak desen bekçisi** girdiyi (senaryo, beklenti, `--setup`, `--sun` metinleri) ve ÇIKTIYI (`sonuc.json`, `RAPOR.md`) tarar; şu biçimleri kodda yakalar: 11 hane, TR cep telefonu, e-posta, `--yasak-desen` desenleri. Eşleşmede iş başlamaz ya da çıktı yazılmaz ve bu koşunun kareleri silinir (çıkış 2); yalnız `dosya:satır` ve silinen kare sayısı yazılır (silinemeyen `KALDI, elle silin` diye listelenir). Ad/adres gibi gerisi sınayıcının sorumluluğudur.
 
 ## Ne YAPMAZ
 
-Canlı siteyi gezmez, düzeltme uygulamaz, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa atlama yerine hata).
+En çok 12 görüntü açar; PROOF'a yerel yol/kullanıcı adı girmeden maskeler. Canlı siteyi gezmez, düzeltme uygulamaz, piksel karşılaştırması yapmaz. "Bulgu yok" = yalnız yazılan senaryo ve matris için bulgu yok. Koşucu testi: `senaryo-kos.selftest.mjs` (`UX_SINAMA_TARAYICI_ZORUNLU=1`: tarayıcı yoksa hata).
