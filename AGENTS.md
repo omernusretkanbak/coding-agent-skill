@@ -39,6 +39,7 @@ SKOR < 5 → ENGELLEYİCİ ve ÖNEMLİ bulgular yeni bir Yazar görevine dönü�
 | code-structure | `.claude/skills/code-structure/SKILL.md` (+ `builder-prompt.md`) | 2 |
 | prove-it | `.claude/skills/prove-it/SKILL.md` (+ `PROOF-template.md`) | 3 |
 | ship-it | `.claude/skills/ship-it/SKILL.md` (+ `reviewer-prompt.md`) | 4 |
+| ux-sinama | `.claude/skills/ux-sinama/SKILL.md` (+ `scripts/senaryo-kos.mjs`) | 3'e girdi (yalnız arayüz değişikliğinde) |
 | fabrika | `.claude/skills/fabrika/SKILL.md` (+ `roller/yazar.md`, `roller/inceleyici.md`; Claude Code ajanları `.claude/agents/fabrika-*.md`) | 1–4 orkestrasyonu |
 
 Claude dışı ajanlar bu skill dosyalarını yukarıdaki yollardan düz Markdown olarak okuyup uygular.

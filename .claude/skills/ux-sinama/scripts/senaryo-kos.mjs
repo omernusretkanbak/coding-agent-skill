@@ -1,0 +1,1516 @@
+#!/usr/bin/env node
+// senaryo-kos.mjs
+//
+// Amaç: bağımsız bir "sınayıcı"nın bir web arayüzünü SENARYO bazlı, başsız Edge/Chrome + CDP ile
+// sınaması ve bulgu raporu (sonuc.json + RAPOR.md + PNG kareler) üretmesi. Kod DEĞİŞTİRMEZ; yalnız
+// gözlemler. prove-it/scripts/capture-page.mjs'in CDP kalıbını ve süreç hijyenini (rastgele geçici
+// profil, her çıkış yolunda temizlik, sabit port yok, --timeout-ms iç deadline) aynen izler.
+// Bağımlılıksız: yalnız Node >= 22 çekirdek API'leri (global fetch + WebSocket).
+//
+// Kullanım:
+//   node senaryo-kos.mjs --senaryo <json> (--url http://127.0.0.1:PORT/ | --sun <dizin>) --out <dizin>
+//     [--matris 390x844,768x1024,1280x800] [--tema acik,koyu] [--tekrar 1] [--setup <js>]
+//     [--beklenti <json>] [--yasak-desen <dosya>] [--timeout-ms 180000] [--browser <exe>]
+//   node senaryo-kos.mjs --help
+//
+// Çıkış kodları: 0 temiz ya da yalnız KÜÇÜK bulgu; 1 ENGELLEYİCİ/ÖNEMLİ bulgu var;
+//                2 kullanım / güvenlik (URL ya da yasak desen bekçisi) / tarayıcı bulunamadı;
+//                3 koşucu hatası (zaman aşımı, tarayıcı, CDP).
+//
+// GÜVENLİK (kodda, talimatta değil):
+//  - URL bekçisi: yalnız ^http://127\.0\.0\.1:\d+(/|$). localhost, başka IP, ana makine adı, https,
+//    file: REDDEDİLİR (çıkış 2). Gezinme sırasında yönlendirme/alt istek 127.0.0.1 dışına giderse
+//    CDP Fetch alanında istekten ÖNCE engellenir ve ENGELLEYİCİ bulgu olur.
+//  - Yasak desen bekçisi: koşucu başlamadan senaryoyu (ve --sun dizinindeki metin dosyalarını)
+//    varsayılan + --yasak-desen desenleriyle tarar; eşleşme varsa HİÇ başlamaz (çıkış 2). Eşleşen
+//    metin DEĞİL, yalnız dosya:satır ve desen adı yazılır.
+//  - --sun: dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar; `..`, kaçış kodlu `..`, sembolik
+//    bağlantı ile dizin dışına çıkış engelli; çıkışta kapanır.
+
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync,
+  realpathSync, readdirSync, statSync, lstatSync,
+} from 'node:fs';
+import { createServer } from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
+
+const HELP = `Kullanım:
+  node senaryo-kos.mjs --senaryo <json> (--url <http://127.0.0.1:PORT/...> | --sun <dizin>) --out <dizin> [seçenekler]
+
+Zorunlu:
+  --senaryo <json>        Adım listesi (bkz. senaryo-sablonu.json)
+  --url <url>             Sınanacak adres. YALNIZ http://127.0.0.1:PORT/... kabul edilir
+                          (localhost, başka IP, https, file: reddedilir; çıkış 2)
+  --sun <dizin>           --url yerine: dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar
+                          (--url ile BİRLİKTE VERİLEMEZ; çıkışta kapanır)
+  --out <dizin>           sonuc.json, RAPOR.md ve kareler buraya yazılır
+
+Seçenekler:
+  --matris <GxY,...>      Görünüm alanları (varsayılan: 390x844,768x1024,1280x800)
+  --tema <acik,koyu>      prefers-color-scheme emülasyonu (varsayılan: acik,koyu)
+  --tekrar <n>            Senaryoyu her hücrede n kez koş (1-5, varsayılan 1). YENİ senaryoda 2 kullan:
+                          sonuçlar farklıysa "kararsız senaryo" uyarısı verilir (ürün bulgusu sayılmaz)
+  --setup <js>            Her sayfa belgesinden ÖNCE çalışacak JS (ör. Date.now sabitleme)
+  --beklenti <json>       Sayfa açılmadan önce yazılmış beklenti listesi (bkz. beklenti-sablonu.json)
+  --yasak-desen <dosya>   Satır başına bir düzenli ifade; varsayılan yasak desenlere EK olarak uygulanır
+  --rapor-sablon <md>     RAPOR.md şablonu (varsayılan: skill dizinindeki RAPOR-template.md)
+  --timeout-ms <ms>       Toplam süre sınırı (varsayılan 180000), TEK global deadline. Çağıranın kendi dış
+                          zaman aşımından KISA tut (aksi halde temizlik fırsatı bulunamaz)
+  --browser <exe>         Tarayıcı yolu (yoksa CAPTURE_BROWSER, sonra Edge/Chrome aranır)
+  --help                  Bu yardım
+
+Otomatik denetimler: konsol hatası/yakalanmamış istisna, ağ hatası (4xx/5xx), 127.0.0.1 dışı istek,
+yatay taşma, adsız etkileşimli öğe, alt'sız görsel, başlık atlaması, dokunmatik hedef < 44 px (390 genişlik),
+Tab ile görünür odak, yazı < 12 px.
+
+Çıkış kodları: 0 temiz/yalnız KÜÇÜK, 1 ENGELLEYİCİ/ÖNEMLİ bulgu, 2 kullanım/güvenlik/tarayıcı yok, 3 koşucu hatası.
+`;
+
+// ---------------------------------------------------------------------------------------------
+// Bekçiler (saf işlevler)
+// ---------------------------------------------------------------------------------------------
+
+const URL_IZINLI = /^http:\/\/127\.0\.0\.1:\d+(\/|$)/;
+
+/** Yalnız http://127.0.0.1:PORT kabul edilir. */
+export function urlBekcisi(url) {
+  return typeof url === 'string' && URL_IZINLI.test(url);
+}
+
+const GORSEL_UZANTILAR = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'ico', 'css', 'js']);
+// Her desen: { ad, re, suz? }. suz(eşleşme) true dönerse eşleşme yok sayılır.
+const VARSAYILAN_DESENLER = [
+  { ad: 'on-bir-hane', re: /(?<!\d)\d{11}(?!\d)/ },
+  { ad: 'tr-cep', re: /(?<!\d)(?:\+90|90|0)[\s-]*\(?5\d{2}\)?[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}(?!\d)/ },
+  { ad: 'tr-cep', re: /(?<!\d)5\d{2}[\s.-]\d{3}[\s.-]\d{2}[\s.-]\d{2}(?!\d)/ },
+  {
+    ad: 'eposta',
+    re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.([A-Za-z]{2,})/,
+    suz: (m) => GORSEL_UZANTILAR.has(m[1].toLowerCase()), // logo@2x.png gibi dosya adları e-posta değildir
+  },
+];
+
+/**
+ * Metinleri yasak desenlere karşı tarar. Eşleşen METNİ döndürmez: yalnız dosya adı, satır no, desen adı.
+ * @param {{dosyalar: {ad: string, metin: string}[], ozel?: {ad: string, re: RegExp}[]}} girdi
+ */
+export function yasakTara({ dosyalar, ozel = [] }) {
+  const desenler = [...VARSAYILAN_DESENLER, ...ozel];
+  const bulunan = [];
+  const goruldu = new Set();
+  for (const d of dosyalar) {
+    const satirlar = d.metin.split(/\r?\n/);
+    satirlar.forEach((satir, i) => {
+      for (const p of desenler) {
+        const re = new RegExp(p.re.source, p.re.flags.replace('g', ''));
+        const m = re.exec(satir);
+        if (!m) continue;
+        if (p.suz && p.suz(m)) {
+          // aynı satırda başka eşleşme olabilir: g bayraklı tarama
+          const g = new RegExp(p.re.source, p.re.flags.replace('g', '') + 'g');
+          let bulundu = false;
+          for (const mm of satir.matchAll(g)) {
+            if (!p.suz(mm)) { bulundu = true; break; }
+          }
+          if (!bulundu) continue;
+        }
+        const anahtar = `${d.ad}\0${i + 1}\0${p.ad}`;
+        if (goruldu.has(anahtar)) continue;
+        goruldu.add(anahtar);
+        bulunan.push({ dosya: d.ad, satir: i + 1, desen: p.ad });
+      }
+    });
+  }
+  return bulunan;
+}
+
+const METIN_UZANTILARI = new Set(['.html', '.htm', '.css', '.js', '.mjs', '.json', '.txt', '.md', '.svg', '.xml', '.csv', '.webmanifest']);
+const TARAMA_BOYUT_SINIRI = 2 * 1024 * 1024;
+
+/** --sun dizinindeki metin dosyalarını (sembolik bağlantıları atlayarak) toplar. */
+function sunMetinDosyalari(kok) {
+  const sonuc = [];
+  const gez = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.isSymbolicLink()) continue;
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { gez(p); continue; }
+      if (!e.isFile() || !METIN_UZANTILARI.has(path.extname(e.name).toLowerCase())) continue;
+      if (statSync(p).size > TARAMA_BOYUT_SINIRI) continue;
+      sonuc.push({ ad: path.relative(kok, p).split(path.sep).join('/'), metin: readFileSync(p, 'utf8') });
+    }
+  };
+  gez(kok);
+  return sonuc;
+}
+
+function ozelDesenleriOku(dosya) {
+  if (!existsSync(dosya)) throw new KullanimHatasi(`--yasak-desen dosyası bulunamadı: ${dosya}`);
+  const desenler = [];
+  readFileSync(dosya, 'utf8').split(/\r?\n/).forEach((satir, i) => {
+    const s = satir.trim();
+    if (!s || s.startsWith('#')) return;
+    try {
+      desenler.push({ ad: `ozel:${i + 1}`, re: new RegExp(s, 'u') });
+    } catch {
+      throw new KullanimHatasi(`--yasak-desen ${i + 1}. satır geçerli bir düzenli ifade değil`);
+    }
+  });
+  return desenler;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Salt-okunur statik sunucu (--sun)
+// ---------------------------------------------------------------------------------------------
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.avif': 'image/avif', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json', '.xml': 'application/xml',
+};
+
+function icinde(kokGercek, hedefGercek) {
+  const k = process.platform === 'win32' ? kokGercek.toLowerCase() : kokGercek;
+  const h = process.platform === 'win32' ? hedefGercek.toLowerCase() : hedefGercek;
+  return h === k || h.startsWith(k.endsWith(path.sep) ? k : k + path.sep);
+}
+
+/** Dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar. Dizin dışına çıkış engellidir. */
+export function statikSunucuBaslat(dizin) {
+  const kokGercek = realpathSync(path.resolve(dizin));
+  const baglantilar = new Set();
+  const sunucu = createServer((req, res) => {
+    const hata = (kod, ek = {}) => {
+      res.writeHead(kod, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...ek });
+      res.end(`${kod}\n`);
+    };
+    if (req.method !== 'GET' && req.method !== 'HEAD') return hata(405, { Allow: 'GET, HEAD' });
+    let ham = (req.url || '/').split('#')[0].split('?')[0];
+    let cozulmus;
+    try { cozulmus = decodeURIComponent(ham); } catch { return hata(400); }
+    if (cozulmus.includes('\0')) return hata(400);
+    const parcalar = cozulmus.split(/[\\/]+/).filter((s) => s !== '' && s !== '.');
+    // `..` (düz ya da kaçış kodlu) ve Windows sürücü/akış ayracı (:) dizin dışına çıkış sayılır.
+    if (parcalar.some((s) => s === '..' || s.includes(':'))) return hata(403);
+    let hedef = path.join(kokGercek, ...parcalar);
+    let gercek;
+    try { gercek = realpathSync(hedef); } catch { return hata(404); }
+    if (!icinde(kokGercek, gercek)) return hata(403); // sembolik bağlantıyla kaçış
+    try {
+      if (statSync(gercek).isDirectory()) {
+        gercek = realpathSync(path.join(gercek, 'index.html'));
+        if (!icinde(kokGercek, gercek)) return hata(403);
+      }
+      if (!statSync(gercek).isFile()) return hata(404);
+    } catch { return hata(404); }
+    const govde = readFileSync(gercek);
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(gercek).toLowerCase()] || 'application/octet-stream',
+      'Content-Length': govde.length,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.end(req.method === 'HEAD' ? undefined : govde);
+  });
+  sunucu.on('connection', (s) => { baglantilar.add(s); s.on('close', () => baglantilar.delete(s)); });
+  return new Promise((resolve, reject) => {
+    sunucu.once('error', reject);
+    sunucu.listen(0, '127.0.0.1', () => {
+      const { port, address } = sunucu.address();
+      resolve({
+        port,
+        adres: address,
+        kapat: () => new Promise((r) => {
+          sunucu.close(() => r());
+          for (const s of baglantilar) s.destroy();
+        }),
+      });
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tarayıcı bulma (capture-page.mjs ile aynı arama sırası)
+// ---------------------------------------------------------------------------------------------
+
+export function tarayiciBul(explicit) {
+  if (explicit) return existsSync(explicit) ? explicit : null;
+  if (process.env.CAPTURE_BROWSER) {
+    return existsSync(process.env.CAPTURE_BROWSER) ? process.env.CAPTURE_BROWSER : null;
+  }
+  const adaylar = [];
+  if (process.platform === 'win32') {
+    const pf86 = process.env['ProgramFiles(x86)'];
+    const pf = process.env['ProgramFiles'];
+    const localAppData = process.env['LOCALAPPDATA'];
+    if (pf86) adaylar.push(path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+    if (pf) adaylar.push(path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+    if (pf) adaylar.push(path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'));
+    if (pf86) adaylar.push(path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'));
+    if (localAppData) adaylar.push(path.join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe'));
+  } else if (process.platform === 'darwin') {
+    adaylar.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+    adaylar.push('/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge');
+  } else {
+    adaylar.push('/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge');
+  }
+  return adaylar.find((c) => existsSync(c)) ?? null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Argüman ve senaryo doğrulama
+// ---------------------------------------------------------------------------------------------
+
+class KullanimHatasi extends Error {}
+
+const VARSAYILAN_MATRIS = '390x844,768x1024,1280x800';
+const VARSAYILAN_TEMA = 'acik,koyu';
+
+function degerAl(argv, i, bayrak) {
+  if (i >= argv.length) throw new KullanimHatasi(`${bayrak} bir değer bekliyor`);
+  return argv[i];
+}
+
+function pozitifTamsayi(ham, bayrak, enAz = 1, enCok = Infinity) {
+  const n = Number(ham);
+  if (!Number.isInteger(n) || n < enAz || n > enCok) throw new KullanimHatasi(`${bayrak} geçerli bir tamsayı olmalı: ${ham}`);
+  return n;
+}
+
+export function matrisAyristir(ham) {
+  const hucreler = ham.split(',').map((s) => s.trim()).filter(Boolean);
+  if (hucreler.length === 0) throw new KullanimHatasi(`--matris boş olamaz: ${ham}`);
+  return hucreler.map((h) => {
+    const m = /^(\d{2,5})x(\d{2,5})$/.exec(h);
+    if (!m) throw new KullanimHatasi(`--matris <GENİŞLİKxYÜKSEKLİK,...> biçiminde olmalı: ${h}`);
+    return { genislik: Number(m[1]), yukseklik: Number(m[2]) };
+  });
+}
+
+export function temaAyristir(ham) {
+  const temalar = ham.split(',').map((s) => s.trim()).filter(Boolean);
+  if (temalar.length === 0 || temalar.some((t) => t !== 'acik' && t !== 'koyu')) {
+    throw new KullanimHatasi(`--tema yalnız acik ve/veya koyu olabilir: ${ham}`);
+  }
+  return [...new Set(temalar)];
+}
+
+function argumanAyristir(argv) {
+  const a = {
+    senaryo: null, url: null, sun: null, out: null, matris: VARSAYILAN_MATRIS, tema: VARSAYILAN_TEMA,
+    tekrar: 1, setup: null, beklenti: null, yasakDesen: null, raporSablon: null,
+    timeoutMs: 180000, browser: null, help: false,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    switch (arg) {
+      case '--help': case '-h': a.help = true; break;
+      case '--senaryo': a.senaryo = degerAl(argv, ++i, arg); break;
+      case '--url': a.url = degerAl(argv, ++i, arg); break;
+      case '--sun': a.sun = degerAl(argv, ++i, arg); break;
+      case '--out': a.out = degerAl(argv, ++i, arg); break;
+      case '--matris': a.matris = degerAl(argv, ++i, arg); break;
+      case '--tema': a.tema = degerAl(argv, ++i, arg); break;
+      case '--tekrar': a.tekrar = pozitifTamsayi(degerAl(argv, ++i, arg), arg, 1, 5); break;
+      case '--setup': a.setup = degerAl(argv, ++i, arg); break;
+      case '--beklenti': a.beklenti = degerAl(argv, ++i, arg); break;
+      case '--yasak-desen': a.yasakDesen = degerAl(argv, ++i, arg); break;
+      case '--rapor-sablon': a.raporSablon = degerAl(argv, ++i, arg); break;
+      case '--timeout-ms': a.timeoutMs = pozitifTamsayi(degerAl(argv, ++i, arg), arg); break;
+      case '--browser': a.browser = degerAl(argv, ++i, arg); break;
+      default: throw new KullanimHatasi(`Bilinmeyen parametre: ${arg}`);
+    }
+  }
+  return a;
+}
+
+const ADIM_ALANLARI = {
+  goto: ['url'],
+  click: ['role', 'name', 'metin'],
+  fill: ['role', 'name', 'metin', 'deger'],
+  press: ['tus'],
+  waitFor: ['role', 'name', 'metin', 'kaybolur', 'zamanAsimiMs'],
+  assertText: ['metin', 'yok'],
+  assertVisible: ['role', 'name', 'metin'],
+  screenshot: ['ad'],
+};
+const ORTAK_ALANLAR = ['adim', 'beklenti', 'not'];
+export const TUSLAR = ['Enter', 'Tab', 'Escape', 'Space', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
+/** Senaryo JSON'unu doğrular; geçersizse KullanimHatasi fırlatır. Tarayıcı AÇILMADAN çağrılır. */
+export function senaryoDogrula(s) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) throw new KullanimHatasi('senaryo bir JSON nesnesi olmalı');
+  if (typeof s.ad !== 'string' || !s.ad.trim()) throw new KullanimHatasi('senaryo "ad" (metin) içermeli');
+  if (!Array.isArray(s.adimlar) || s.adimlar.length === 0) throw new KullanimHatasi('senaryo en az bir adım içermeli ("adimlar" dizisi)');
+  s.adimlar.forEach((st, i) => {
+    const no = i + 1;
+    if (!st || typeof st !== 'object' || Array.isArray(st)) throw new KullanimHatasi(`adım ${no}: nesne olmalı`);
+    const tur = st.adim;
+    if (!ADIM_ALANLARI[tur]) {
+      throw new KullanimHatasi(`adım ${no}: bilinmeyen adım türü "${String(tur)}" ("adim" alanı: ${Object.keys(ADIM_ALANLARI).join('|')})`);
+    }
+    const izinli = new Set([...ORTAK_ALANLAR, ...ADIM_ALANLARI[tur]]);
+    for (const k of Object.keys(st)) {
+      if (!izinli.has(k)) {
+        const css = ['css', 'selector', 'secici', 'xpath', 'sinif', 'class', 'id'].includes(k.toLowerCase());
+        throw new KullanimHatasi(
+          `adım ${no} (${tur}): "${k}" alanı geçersiz` + (css ? ' — CSS/XPath/sınıf hedefi YASAK; erişilebilirlik role+name ya da görünür metin kullanın' : ''),
+        );
+      }
+    }
+    if (i === 0 && tur !== 'goto') throw new KullanimHatasi('ilk adım "goto" olmalı');
+    const hedefli = ['click', 'fill', 'assertVisible', 'waitFor'].includes(tur);
+    if (hedefli) {
+      const roleVar = typeof st.role === 'string' && st.role.trim() !== '';
+      const metinVar = typeof st.metin === 'string' && st.metin.trim() !== '';
+      if (roleVar === metinVar) {
+        throw new KullanimHatasi(`adım ${no} (${tur}): hedef role+name ya da görünür metin olmalı (ikisi birden/hiçbiri olmaz)`);
+      }
+      if (st.name !== undefined && (typeof st.name !== 'string' || !roleVar)) {
+        throw new KullanimHatasi(`adım ${no} (${tur}): "name" yalnız "role" ile birlikte, metin olarak verilir`);
+      }
+    }
+    if (tur === 'goto') {
+      if (typeof st.url !== 'string' || !st.url) throw new KullanimHatasi(`adım ${no} (goto): "url" gerekli`);
+      let cozulen;
+      try { cozulen = new URL(st.url, 'http://127.0.0.1:1/').href; } catch { throw new KullanimHatasi(`adım ${no} (goto): geçersiz url`); }
+      if (!urlBekcisi(cozulen)) {
+        throw new KullanimHatasi(`adım ${no} (goto): url yalnız 127.0.0.1 üzerinde olabilir (http://127.0.0.1:PORT/...); göreli yol kullanın`);
+      }
+    }
+    if (tur === 'fill' && typeof st.deger !== 'string') throw new KullanimHatasi(`adım ${no} (fill): "deger" (metin) gerekli`);
+    if (tur === 'press' && !TUSLAR.includes(st.tus)) throw new KullanimHatasi(`adım ${no} (press): "tus" şunlardan biri olmalı: ${TUSLAR.join(', ')}`);
+    if ((tur === 'assertText') && (typeof st.metin !== 'string' || !st.metin)) throw new KullanimHatasi(`adım ${no} (assertText): "metin" gerekli`);
+    if (tur === 'screenshot' && !(typeof st.ad === 'string' && /^[\p{L}\p{N}_-]+$/u.test(st.ad))) {
+      throw new KullanimHatasi(`adım ${no} (screenshot): "ad" yalnız harf, rakam, _ ve - içerebilir`);
+    }
+    if (st.zamanAsimiMs !== undefined && !(Number.isInteger(st.zamanAsimiMs) && st.zamanAsimiMs > 0)) {
+      throw new KullanimHatasi(`adım ${no} (waitFor): "zamanAsimiMs" pozitif tamsayı olmalı`);
+    }
+  });
+  return s;
+}
+
+/** beklenti.json biçimini ve adımlardaki `beklenti` kimliklerini doğrular (tarayıcı açılmadan). */
+export function beklentiDogrula(b, sen) {
+  const kullanilan = sen.adimlar.map((st) => st.beklenti).filter((x) => x !== undefined);
+  if (!b) {
+    if (kullanilan.length) throw new KullanimHatasi(`adımlar beklenti kimliği kullanıyor (${kullanilan[0]}) ama --beklenti dosyası verilmedi`);
+    return null;
+  }
+  if (typeof b !== 'object' || !Array.isArray(b.beklentiler) || b.beklentiler.length === 0) {
+    throw new KullanimHatasi('beklenti dosyası {"beklentiler":[{"id":"B1","metin":"..."}]} biçiminde olmalı');
+  }
+  const idler = new Set();
+  for (const x of b.beklentiler) {
+    if (!x || typeof x.id !== 'string' || !x.id || typeof x.metin !== 'string' || !x.metin.trim()) {
+      throw new KullanimHatasi('her beklenti "id" ve "metin" içermeli');
+    }
+    if (idler.has(x.id)) throw new KullanimHatasi(`beklenti kimliği tekrarlanıyor: ${x.id}`);
+    idler.add(x.id);
+  }
+  if (b.senaryo !== undefined && b.senaryo !== sen.ad) {
+    throw new KullanimHatasi(`beklenti dosyasının senaryo adı ("${b.senaryo}") senaryonun adıyla ("${sen.ad}") uyuşmuyor`);
+  }
+  for (const k of kullanilan) {
+    if (!idler.has(k)) throw new KullanimHatasi(`adım bilinmeyen beklenti kimliğine başvuruyor: ${k}`);
+  }
+  return b;
+}
+
+function jsonOku(dosya, etiket) {
+  if (!existsSync(dosya)) throw new KullanimHatasi(`${etiket} bulunamadı: ${dosya}`);
+  try {
+    return JSON.parse(readFileSync(dosya, 'utf8'));
+  } catch (err) {
+    throw new KullanimHatasi(`${etiket} geçerli JSON değil (${path.basename(dosya)}): ${err.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Süreç hijyeni (capture-page.mjs ile aynı yöntem; bkz. oradaki ayrıntılı gerekçeler)
+// ---------------------------------------------------------------------------------------------
+// Tarayıcı kendini erken evrede yeniden başlatabildiğinden spawn PID'ine GÜVENİLMEZ: bu çalıştırmaya
+// özgü, mkdtempSync ile rastgele üretilmiş profil dizinini komut satırında taşıyan TÜM süreçler
+// (PID zincirinden bağımsız) taranıp kapatılır. Sorguyu çalıştıran powershell kendini dışlar
+// ($PID) ve joker karakter sorunu olmasın diye -like yerine .Contains() kullanılır.
+
+function buildProfileDirFilter(profileDir) {
+  const escaped = profileDir.replace(/'/g, "''");
+  return `$_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine.Contains('${escaped}')`;
+}
+
+function killByProfileDir(profileDir) {
+  if (process.platform === 'win32') {
+    const cmd =
+      `Get-CimInstance Win32_Process | Where-Object { ${buildProfileDirFilter(profileDir)} } | ` +
+      'ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch {} }';
+    try { return spawnSync('powershell', ['-NoProfile', '-Command', cmd], { stdio: 'ignore' }); } catch (err) { return { error: err }; }
+  }
+  try { return spawnSync('pkill', ['-9', '-f', profileDir], { stdio: 'ignore' }); } catch (err) { return { error: err }; }
+}
+
+// Yalnız SAYAR. Başarısızsa -1 ("bilinmiyor") döner; çağıran bunu 0 SAYMAZ.
+function countByProfileDir(profileDir) {
+  if (process.platform === 'win32') {
+    const cmd = `(Get-CimInstance Win32_Process | Where-Object { ${buildProfileDirFilter(profileDir)} } | Measure-Object).Count`;
+    try {
+      const res = spawnSync('powershell', ['-NoProfile', '-Command', cmd], { encoding: 'utf8' });
+      const n = parseInt((res.stdout || '').trim(), 10);
+      return Number.isFinite(n) ? n : -1;
+    } catch { return -1; }
+  }
+  try {
+    const res = spawnSync('pgrep', ['-f', profileDir], { encoding: 'utf8' });
+    if (res.error) return -1;
+    return (res.stdout || '').split('\n').filter((l) => l.trim().length > 0).length;
+  } catch { return -1; }
+}
+
+function spawnBrowser(browserPath, profileDir) {
+  return spawn(
+    browserPath,
+    ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check', 'about:blank'],
+    { stdio: 'ignore' },
+  );
+}
+
+function waitForExit(child, ms) {
+  return new Promise((resolve) => {
+    if (!child || child.exitCode !== null || child.signalCode !== null) return resolve(true);
+    const timer = setTimeout(() => resolve(false), ms);
+    child.once('exit', () => { clearTimeout(timer); resolve(true); });
+  });
+}
+
+// Windows'ta süreç ağacı kapansa bile dosya kilitleri (EPERM) gecikebilir: rmSync geniş bir toplam bütçe içinde tekrarlanır.
+async function removeProfileDir(profileDir, totalBudgetMs = 15000) {
+  const start = Date.now();
+  while (Date.now() - start < totalBudgetMs) {
+    try {
+      rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      return;
+    } catch { await sleep(500); }
+  }
+  try { rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
+}
+
+// Tüm çıkış yollarının (başarı, hata, iç zaman aşımı, SIGINT/SIGTERM) aynı temizliğe uğradığı tek nokta. İdempotent.
+async function cleanupResources(state) {
+  if (!state || state.done) return;
+  state.done = true;
+  if (state.ws) { try { state.ws.close(); } catch {} }
+  if (state.sunucu) { try { await state.sunucu.kapat(); } catch {} }
+  if (state.child) await waitForExit(state.child, 1000);
+  const TUR = 3;
+  for (let i = 0; i < TUR; i++) {
+    if (countByProfileDir(state.profileDir) === 0) break;
+    killByProfileDir(state.profileDir);
+    if (i < TUR - 1) await sleep(300);
+  }
+  await removeProfileDir(state.profileDir);
+}
+
+let activeState = null;
+let signalHandlersInstalled = false;
+function installSignalHandlers() {
+  if (signalHandlersInstalled) return;
+  signalHandlersInstalled = true;
+  const onSignal = (signal) => {
+    console.error(`Hata: ${signal} alındı, temizleniyor...`);
+    cleanupResources(activeState).finally(() => process.exit(3));
+  };
+  // Windows'ta dışarıdan TerminateProcess ile öldürülürse bu işleyiciler ÇALIŞMAZ: --timeout-ms'i
+  // çağıranın kendi dış zaman aşımından belirgin biçimde KISA tut.
+  process.on('SIGINT', () => onSignal('SIGINT'));
+  process.on('SIGTERM', () => onSignal('SIGTERM'));
+}
+
+async function waitForDevToolsActivePort(profileDir, timeoutMs) {
+  const file = path.join(profileDir, 'DevToolsActivePort');
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (existsSync(file)) {
+      const port = parseInt(readFileSync(file, 'utf8').trim().split('\n')[0], 10);
+      if (Number.isInteger(port) && port > 0) return port;
+    }
+    await sleep(50);
+  }
+  throw new Error('DevToolsActivePort dosyası zaman aşımına uğradı (tarayıcı başlamamış olabilir)');
+}
+
+async function waitForPageTarget(port, timeoutMs) {
+  const start = Date.now();
+  let lastErr;
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/json/list`);
+      if (res.ok) {
+        const target = (await res.json()).find((t) => t.type === 'page');
+        if (target) return target;
+      }
+    } catch (err) { lastErr = err; }
+    await sleep(50);
+  }
+  throw new Error(`CDP page hedefi bulunamadı (timeout): ${lastErr ?? ''}`);
+}
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+function describeException(d) {
+  return d?.exception?.description || d?.text || JSON.stringify(d);
+}
+
+class CdpClient {
+  // getRemainingMs: run()'ın TEK global deadline'ına göre KALAN süre (her çağrıda yeniden hesaplanır).
+  constructor(ws, getRemainingMs) {
+    this.ws = ws;
+    this.getRemainingMs = getRemainingMs;
+    this.nextId = 1;
+    this.pending = new Map();
+    this.eventWaiters = [];
+    this.dinleyiciler = [];
+    ws.addEventListener('message', (ev) => {
+      let msg;
+      try { msg = JSON.parse(typeof ev.data === 'string' ? ev.data : ev.data.toString()); } catch { return; }
+      if (msg.id && this.pending.has(msg.id)) {
+        const { resolve, reject, timer } = this.pending.get(msg.id);
+        clearTimeout(timer);
+        this.pending.delete(msg.id);
+        if (msg.error) reject(new Error(JSON.stringify(msg.error))); else resolve(msg.result);
+      } else if (msg.method) {
+        for (const d of this.dinleyiciler) {
+          if (d.method === msg.method) { try { d.fn(msg.params); } catch {} }
+        }
+        this.eventWaiters = this.eventWaiters.filter((w) => {
+          if (w.method === msg.method) { w.resolve(msg.params); return false; }
+          return true;
+        });
+      }
+    });
+  }
+
+  /** Kalıcı olay dinleyicisi. */
+  on(method, fn) { this.dinleyiciler.push({ method, fn }); }
+
+  send(method, params = {}) {
+    const id = this.nextId++;
+    const ms = this.getRemainingMs();
+    if (ms <= 0) return Promise.reject(new Error(`${method}: toplam süre sınırı aşıldı`));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} zaman aşımına uğradı`)); }, ms);
+      this.pending.set(id, { resolve, reject, timer });
+      this.ws.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  waitForEvent(method, timeoutMs) {
+    const ms = timeoutMs ?? this.getRemainingMs();
+    if (ms <= 0) {
+      const rejected = Promise.reject(new Error(`${method}: toplam süre sınırı aşıldı`));
+      rejected.cancel = () => {};
+      return rejected;
+    }
+    let entry;
+    const promise = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.eventWaiters = this.eventWaiters.filter((w) => w !== entry);
+        reject(new Error(`${method} eventi zaman aşımına uğradı`));
+      }, ms);
+      entry = { method, resolve: (p) => { clearTimeout(timer); resolve(p); } };
+      this.eventWaiters.push(entry);
+    });
+    promise.cancel = () => { this.eventWaiters = this.eventWaiters.filter((w) => w !== entry); };
+    return promise;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sayfa içi betikler (Node tarafında tanımlanır, toString() ile sayfaya gönderilir)
+// ---------------------------------------------------------------------------------------------
+
+// Otomatik denetimlerin DOM ölçümleri. Yalnız OKUR; sayfayı değiştirmez.
+function sayfaOlcumu() {
+  const gorunur = (el) => {
+    const r = el.getClientRects();
+    if (!r.length) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none' && parseFloat(cs.opacity) !== 0;
+  };
+  const tanim = (el) => {
+    let s = el.tagName.toLowerCase();
+    if (el.id) s += `#${el.id}`;
+    const t = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    return t ? `${s} "${t}"` : s;
+  };
+  const de = document.documentElement;
+  const sonuc = {};
+  sonuc.tasma = { scrollWidth: de.scrollWidth, clientWidth: de.clientWidth, innerWidth: window.innerWidth, tasanlar: [] };
+  if (de.scrollWidth > de.clientWidth + 1) {
+    for (const el of document.body.querySelectorAll('*')) {
+      if (!gorunur(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right > de.clientWidth + 1) {
+        sonuc.tasma.tasanlar.push(`${tanim(el)} (sağ=${Math.round(r.right)})`);
+        if (sonuc.tasma.tasanlar.length >= 3) break;
+      }
+    }
+  }
+  sonuc.altsiz = [...document.querySelectorAll('img:not([alt])')].filter(gorunur)
+    .map((el) => `${tanim(el)} src=${(el.getAttribute('src') || '').slice(0, 30)}`);
+  const basliklar = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[role=heading]')].filter(gorunur).map((el) => ({
+    seviye: /^H[1-6]$/.test(el.tagName) ? Number(el.tagName[1]) : Number(el.getAttribute('aria-level') || 2),
+    oge: tanim(el),
+  }));
+  sonuc.baslikAtlamalari = [];
+  let onceki = null;
+  for (const b of basliklar) {
+    if (onceki !== null && b.seviye > onceki + 1) sonuc.baslikAtlamalari.push({ kimden: onceki, kime: b.seviye, oge: b.oge });
+    onceki = b.seviye;
+  }
+  sonuc.kucukYazi = [];
+  const yuru = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const gorulen = new Set();
+  while (yuru.nextNode()) {
+    const tn = yuru.currentNode;
+    if (!tn.nodeValue.trim()) continue;
+    const el = tn.parentElement;
+    if (!el || gorulen.has(el)) continue;
+    gorulen.add(el);
+    if (['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(el.tagName) || !gorunur(el)) continue;
+    const px = parseFloat(getComputedStyle(el).fontSize);
+    if (px < 12) sonuc.kucukYazi.push({ oge: tanim(el), px });
+  }
+  sonuc.dokunma = [];
+  if (window.innerWidth <= 480) {
+    const adaylar = document.querySelectorAll(
+      'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=checkbox],[role=tab],[role=menuitem],[tabindex]:not([tabindex="-1"])',
+    );
+    for (const el of adaylar) {
+      if (!gorunur(el) || el.disabled) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width >= 44 && r.height >= 44) continue;
+      // Metin akışı içindeki satır içi bağlantılar dokunmatik hedef kuralından muaftır.
+      if (el.tagName === 'A' && getComputedStyle(el).display === 'inline') {
+        const metinli = (n) => n && n.nodeType === 3 && n.nodeValue.trim();
+        if (metinli(el.previousSibling) || metinli(el.nextSibling)) continue;
+      }
+      // Etiketi yeterince büyük onay kutusu/radyo düğmesi.
+      if ((el.type === 'checkbox' || el.type === 'radio') && el.labels
+        && [...el.labels].some((l) => { const q = l.getBoundingClientRect(); return q.width >= 44 && q.height >= 44; })) continue;
+      sonuc.dokunma.push({ oge: tanim(el), w: Math.round(r.width), h: Math.round(r.height) });
+    }
+  }
+  sonuc.hucre = {
+    renkSemasiKoyu: matchMedia('(prefers-color-scheme: dark)').matches,
+    azaltilmisHareket: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    dil: navigator.language,
+    dateNow: Date.now(),
+    baslik: document.title,
+  };
+  return sonuc;
+}
+
+// Tab gezintisi için hazırlık: odaklanabilir öğelerin ODAKSIZ stil imzasını kaydeder, odağı belgenin başına alır.
+function odakHazirla() {
+  const gorunur = (el) => {
+    const r = el.getClientRects();
+    if (!r.length) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
+  };
+  const tanim = (el) => {
+    let s = el.tagName.toLowerCase();
+    if (el.id) s += `#${el.id}`;
+    const t = (el.getAttribute('aria-label') || el.textContent || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    return t ? `${s} "${t}"` : s;
+  };
+  const imza = (el) => {
+    const cs = getComputedStyle(el);
+    return [cs.outlineStyle, cs.outlineWidth, cs.outlineColor, cs.boxShadow, cs.borderTopColor, cs.borderBottomColor,
+      cs.backgroundColor, cs.color, cs.textDecorationLine, cs.textDecorationColor, cs.transform, cs.filter].join('|');
+  };
+  const sel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[tabindex]:not([tabindex="-1"]),[contenteditable=true]';
+  const liste = [...document.querySelectorAll(sel)].filter((el) => !el.disabled && gorunur(el));
+  const temel = new Map(liste.map((el) => [el, imza(el)]));
+  const onceki = document.activeElement;
+  const kaydirma = [window.scrollX, window.scrollY];
+  window.__uxSinama = {
+    liste,
+    olc() {
+      const el = document.activeElement;
+      const sira = liste.indexOf(el);
+      if (sira < 0) return { sira: -1 };
+      const cs = getComputedStyle(el);
+      const halka = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+      return { sira, oge: tanim(el), odakGorunur: halka || imza(el) !== temel.get(el) };
+    },
+    geriYukle() {
+      if (onceki && onceki !== document.body && onceki.focus) onceki.focus({ preventScroll: true });
+      else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      window.scrollTo(kaydirma[0], kaydirma[1]);
+    },
+  };
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  document.body.setAttribute('tabindex', '-1');
+  document.body.focus({ preventScroll: true });
+  document.body.removeAttribute('tabindex');
+  window.scrollTo(0, 0);
+  return { adet: liste.length };
+}
+
+// Metin hedefi: görünür metni içeren EN DERİN öğe (tam eşleşme önceliklidir). Öğenin kendisini döndürür.
+function metinHedefi(metin) {
+  const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const aranan = n(metin);
+  let en = null;
+  let enTam = false;
+  let enUzunluk = Infinity;
+  for (const el of document.body.querySelectorAll('*')) {
+    if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'].includes(el.tagName)) continue;
+    const r = el.getClientRects();
+    if (!r.length) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    const t = n(el.innerText || el.value || el.getAttribute('aria-label') || '');
+    if (!t.includes(aranan)) continue;
+    const tam = t === aranan;
+    if ((tam && !enTam) || (tam === enTam && t.length < enUzunluk)) { en = el; enTam = tam; enUzunluk = t.length; }
+  }
+  return en;
+}
+
+// Hedef öğeyi görünüme getirip tıklanacak noktayı ve örtülü olup olmadığını döndürür (this = öğe).
+function tikKonumu() {
+  const el = this.tagName === 'LABEL' && this.control ? this.control : this;
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  const r = el.getBoundingClientRect();
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+  const ust = document.elementFromPoint(x, y);
+  const ortulu = !(ust && (ust === el || el.contains(ust) || ust.contains(el)));
+  const cs = getComputedStyle(el);
+  return { x, y, w: r.width, h: r.height, ortulu, gorunur: el.getClientRects().length > 0 && cs.visibility !== 'hidden' };
+}
+
+function odakla() {
+  const el = this.tagName === 'LABEL' && this.control ? this.control : this;
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.focus();
+  if (typeof el.select === 'function') el.select();
+  else if (el.isContentEditable) document.execCommand('selectAll');
+  return el.tagName;
+}
+
+function gorunurMu() {
+  const cs = getComputedStyle(this);
+  return this.getClientRects().length > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';
+}
+
+function tanimla() {
+  let s = this.tagName.toLowerCase();
+  if (this.id) s += `#${this.id}`;
+  const t = (this.getAttribute('aria-label') || this.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  return t ? `${s} "${t}"` : s;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Koşucu
+// ---------------------------------------------------------------------------------------------
+
+class AdimHatasi extends Error {}
+
+const SIDDET = {
+  'adim-basarisiz': 'ENGELLEYİCİ',
+  'dis-istek': 'ENGELLEYİCİ',
+  'konsol-hatasi': 'ÖNEMLİ',
+  istisna: 'ÖNEMLİ',
+  'ag-hatasi': 'ÖNEMLİ',
+  'yatay-tasma': 'ÖNEMLİ',
+  'adsiz-oge': 'ÖNEMLİ',
+  'alt-eksik': 'ÖNEMLİ',
+  'odak-yok': 'ÖNEMLİ',
+  'beklenti-kanitsiz': 'ÖNEMLİ',
+  'baslik-atlama': 'KÜÇÜK',
+  'dokunma-hedefi': 'KÜÇÜK',
+  'kucuk-yazi': 'KÜÇÜK',
+};
+const SIDDET_SIRA = ['ENGELLEYİCİ', 'ÖNEMLİ', 'KÜÇÜK'];
+
+const ETKILESIMLI_ROLLER = new Set([
+  'button', 'link', 'textbox', 'searchbox', 'combobox', 'checkbox', 'radio', 'switch', 'slider', 'spinbutton',
+  'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab',
+]);
+
+const TUS_HARITASI = {
+  Enter: { key: 'Enter', code: 'Enter', vk: 13, text: '\r' },
+  Tab: { key: 'Tab', code: 'Tab', vk: 9 },
+  Escape: { key: 'Escape', code: 'Escape', vk: 27 },
+  Space: { key: ' ', code: 'Space', vk: 32, text: ' ' },
+  Backspace: { key: 'Backspace', code: 'Backspace', vk: 8 },
+  ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', vk: 38 },
+  ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', vk: 40 },
+  ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', vk: 37 },
+  ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', vk: 39 },
+};
+
+function slug(s) {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'adsiz';
+}
+
+const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+const kisalt = (s, n = 160) => { const t = norm(s); return t.length > n ? `${t.slice(0, n)}…` : t; };
+const izinliIstek = (url) => urlBekcisi(url) || url.startsWith('data:') || url.startsWith('blob:') || url === 'about:blank';
+function yolMetni(url) { try { const u = new URL(url); return u.pathname; } catch { return kisalt(url, 60); } }
+function hostMetni(url) { try { return new URL(url).host || url.split(':')[0]; } catch { return kisalt(url, 40); } }
+
+async function degerlendir(cdp, expr) {
+  const r = await cdp.send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: false });
+  if (r.exceptionDetails) throw new Error(`sayfa betiği hatası: ${describeException(r.exceptionDetails)}`);
+  return r.result.value;
+}
+
+async function nesneyeCagir(cdp, objectId, fn) {
+  const r = await cdp.send('Runtime.callFunctionOn', { objectId, functionDeclaration: fn.toString(), returnByValue: true });
+  if (r.exceptionDetails) throw new Error(`sayfa betiği hatası: ${describeException(r.exceptionDetails)}`);
+  return r.result.value;
+}
+
+function hedefAciklama(st) {
+  if (st.role) return st.name !== undefined ? `role=${st.role} name="${st.name}"` : `role=${st.role}`;
+  return `metin="${st.metin}"`;
+}
+
+/** Hedefi bir kez dener: bulunursa görünür öğenin objectId'si, yoksa null. */
+async function hedefDene(ctx, st) {
+  const cdp = ctx.cdp;
+  if (st.role) {
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+    const rol = st.role.toLowerCase();
+    const ad = st.name !== undefined ? norm(st.name).toLowerCase() : null;
+    for (const n of nodes) {
+      if (n.ignored || !n.backendDOMNodeId || String(n.role?.value ?? '').toLowerCase() !== rol) continue;
+      if (ad !== null && norm(n.name?.value).toLowerCase() !== ad) continue;
+      let objectId;
+      try { objectId = (await cdp.send('DOM.resolveNode', { backendNodeId: n.backendDOMNodeId })).object?.objectId; } catch { continue; }
+      if (!objectId) continue;
+      if (await nesneyeCagir(cdp, objectId, gorunurMu)) return objectId;
+    }
+    return null;
+  }
+  const r = await cdp.send('Runtime.evaluate', { expression: `(${metinHedefi.toString()})(${JSON.stringify(st.metin)})`, returnByValue: false });
+  if (r.exceptionDetails) throw new Error(`sayfa betiği hatası: ${describeException(r.exceptionDetails)}`);
+  return r.result.subtype === 'node' ? r.result.objectId : null;
+}
+
+async function hedefBul(ctx, st, bekleMs) {
+  const bitis = Date.now() + bekleMs;
+  for (;;) {
+    const nesne = await hedefDene(ctx, st);
+    if (nesne) return nesne;
+    if (Date.now() >= bitis) break;
+    ctx.requireTime('hedef bekleme');
+    await sleep(50);
+  }
+  throw new AdimHatasi(`hedef bulunamadı: ${hedefAciklama(st)}`);
+}
+
+async function tusBas(cdp, ad) {
+  const t = TUS_HARITASI[ad];
+  const ortak = { key: t.key, code: t.code, windowsVirtualKeyCode: t.vk, nativeVirtualKeyCode: t.vk };
+  await cdp.send('Input.dispatchKeyEvent', { type: t.text ? 'keyDown' : 'rawKeyDown', ...(t.text ? { text: t.text } : {}), ...ortak });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...ortak });
+}
+
+async function govdeMetni(cdp) {
+  return norm(await degerlendir(cdp, "document.body ? document.body.innerText : ''"));
+}
+
+// Ağ durulana kadar KOŞULLU bekleme (sabit sleep değil): bekleyen istek yok ve son ağ olayından beri sakinMs geçti.
+async function sakinBekle(ctx, sakinMs = 150, azamiMs = 4000) {
+  const bas = Date.now();
+  while (Date.now() - bas < azamiMs) {
+    ctx.requireTime('ağ sakinliği');
+    if (ctx.bekleyen.size === 0 && Date.now() - ctx.sonAg >= sakinMs) return;
+    await sleep(25);
+  }
+}
+
+async function yuklemeBekle(ctx, url) {
+  const yuk = ctx.cdp.waitForEvent('Page.loadEventFired');
+  yuk.catch(() => {});
+  const nav = await ctx.cdp.send('Page.navigate', { url });
+  if (nav.errorText) {
+    yuk.cancel();
+    throw new AdimHatasi(`gezinme başarısız: ${nav.errorText} (${yolMetni(url)})`);
+  }
+  await yuk;
+}
+
+async function kareKaydet(ctx, ad) {
+  const shot = await ctx.cdp.send('Page.captureScreenshot', { format: 'png' });
+  const dosya = `${slug(ctx.sen.ad)}_${ctx.cur.hucre}_${slug(ad)}.png`;
+  mkdirSync(path.join(ctx.out, 'kareler'), { recursive: true });
+  writeFileSync(path.join(ctx.out, 'kareler', dosya), Buffer.from(shot.data, 'base64'));
+  return `kareler/${dosya}`;
+}
+
+/** Bulgu ekler; aynı anahtar aynı hücre koşusunda bir kez kaydedilir. */
+function bulguEkle(cur, tur, mesaj, olcum, anahtar, kare, siddet) {
+  const k = `${tur}|${anahtar}`;
+  if (cur.bulgular.has(k)) return;
+  cur.bulgular.set(k, { tur, siddet: siddet ?? SIDDET[tur], senaryo: cur.senaryoAd, hucre: cur.hucre, mesaj, olcum, kare: kare ?? null, anahtar: k });
+}
+
+async function olaylariIsle(ctx, kare) {
+  const cur = ctx.cur;
+  const yeni = (liste, anahtar) => { const b = cur.islenen[anahtar]; cur.islenen[anahtar] = liste.length; return liste.slice(b); };
+  const konsol = yeni(cur.konsol, 'konsol');
+  for (const m of konsol) bulguEkle(cur, 'konsol-hatasi', `Konsol hatası: ${kisalt(m, 100)}`, { sayi: konsol.length, ilk: kisalt(m, 160) }, kisalt(m, 80), kare);
+  const ist = yeni(cur.istisna, 'istisna');
+  for (const e of ist) bulguEkle(cur, 'istisna', `Yakalanmamış istisna: ${kisalt(e.metin, 100)}`, { sayi: ist.length, ilk: kisalt(e.metin, 160), konum: e.konum }, kisalt(e.metin, 80), kare);
+  const ag = yeni(cur.ag, 'ag');
+  for (const e of ag) {
+    const ayrinti = e.durum ? `HTTP ${e.durum}` : e.hata;
+    // Tarayıcının kendiliğinden istediği /favicon.ico 404'ü gürültüdür: bulgu olarak kalır ama KÜÇÜK.
+    const favikon = e.durum === 404 && e.yol === '/favicon.ico';
+    bulguEkle(cur, 'ag-hatasi', `Ağ hatası: ${ayrinti} ${e.yol}`, { durum: e.durum ?? null, hata: e.hata ?? null, yol: e.yol, kaynakTuru: e.tur ?? null }, `${ayrinti}|${e.yol}`, kare, favikon ? 'KÜÇÜK' : undefined);
+  }
+  const dis = yeni(cur.dis, 'dis');
+  for (const e of dis) bulguEkle(cur, 'dis-istek', `127.0.0.1 dışına istek ENGELLENDİ: ${e.host}`, { host: e.host, sayi: dis.length }, e.host, kare);
+}
+
+async function axAdsizOgeler(ctx) {
+  const cdp = ctx.cdp;
+  const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+  const adsiz = [];
+  for (const n of nodes) {
+    if (n.ignored || !n.backendDOMNodeId) continue;
+    const rol = String(n.role?.value ?? '').toLowerCase();
+    if (!ETKILESIMLI_ROLLER.has(rol) || norm(n.name?.value) !== '') continue;
+    let tanim = rol;
+    try {
+      const objectId = (await cdp.send('DOM.resolveNode', { backendNodeId: n.backendDOMNodeId })).object?.objectId;
+      if (objectId) tanim = await nesneyeCagir(cdp, objectId, tanimla);
+    } catch {}
+    adsiz.push({ rol, oge: tanim });
+  }
+  return adsiz;
+}
+
+async function odakGezintisi(ctx) {
+  const cdp = ctx.cdp;
+  await cdp.send('Page.bringToFront').catch(() => {});
+  const hazir = await degerlendir(cdp, `(${odakHazirla.toString()})()`);
+  if (!hazir || hazir.adet === 0) return { adet: 0, kontrolEdilen: 0, odaksiz: [] };
+  const sinir = Math.min(hazir.adet, 40);
+  const odaksiz = [];
+  const gorulen = new Set();
+  try {
+    for (let i = 0; i < sinir; i++) {
+      await tusBas(cdp, 'Tab');
+      const o = await degerlendir(cdp, 'window.__uxSinama.olc()');
+      if (!o || o.sira < 0) continue;
+      if (gorulen.has(o.sira)) break;
+      gorulen.add(o.sira);
+      if (!o.odakGorunur) odaksiz.push(o.oge);
+    }
+  } finally {
+    await degerlendir(cdp, 'window.__uxSinama && window.__uxSinama.geriYukle()').catch(() => {});
+  }
+  return { adet: hazir.adet, kontrolEdilen: gorulen.size, odaksiz };
+}
+
+/** Bir kontrol noktası: ağ sakinliği → kare → olay bulguları → DOM / erişilebilirlik / odak denetimleri. */
+async function kontrolNoktasi(ctx, kareAdi) {
+  const cur = ctx.cur;
+  await sakinBekle(ctx);
+  const kare = await kareKaydet(ctx, kareAdi);
+  cur.kareler.push(kare);
+  const hata = (ad, err) => cur.olcumHatalari.push(`${ad}: ${kisalt(err.message, 120)}`);
+  await olaylariIsle(ctx, kare);
+  let o = null;
+  try { o = await degerlendir(ctx.cdp, `(${sayfaOlcumu.toString()})()`); } catch (err) { hata('sayfa-olcumu', err); }
+  if (o) {
+    cur.olcumler = { ...cur.olcumler, ...o.hucre, scrollWidth: o.tasma.scrollWidth, clientWidth: o.tasma.clientWidth, innerWidth: o.tasma.innerWidth };
+    if (o.tasma.scrollWidth > o.tasma.clientWidth + 1) {
+      bulguEkle(cur, 'yatay-tasma', `Yatay taşma: scrollWidth ${o.tasma.scrollWidth} > innerWidth ${o.tasma.innerWidth}`,
+        { scrollWidth: o.tasma.scrollWidth, clientWidth: o.tasma.clientWidth, innerWidth: o.tasma.innerWidth, tasanlar: o.tasma.tasanlar }, 'sayfa', kare);
+    }
+    if (o.altsiz.length) {
+      bulguEkle(cur, 'alt-eksik', `alt özniteliği olmayan görsel: ${o.altsiz.length}`, { sayi: o.altsiz.length, ornekler: o.altsiz.slice(0, 3) }, o.altsiz.join(';'), kare);
+    }
+    if (o.baslikAtlamalari.length) {
+      const b = o.baslikAtlamalari[0];
+      bulguEkle(cur, 'baslik-atlama', `Başlık hiyerarşisi atlıyor: h${b.kimden} → h${b.kime}`,
+        { sayi: o.baslikAtlamalari.length, ilk: b }, o.baslikAtlamalari.map((x) => `${x.kimden}>${x.kime}`).join(';'), kare);
+    }
+    if (o.kucukYazi.length) {
+      const en = Math.min(...o.kucukYazi.map((x) => x.px));
+      bulguEkle(cur, 'kucuk-yazi', `12 px altında yazı: ${o.kucukYazi.length} öğe, en küçük ${en} px`,
+        { sayi: o.kucukYazi.length, enKucukPx: en, ornekler: o.kucukYazi.slice(0, 3).map((x) => x.oge) }, o.kucukYazi.map((x) => x.oge).join(';'), kare);
+    }
+    if (o.dokunma.length) {
+      const enKucuk = o.dokunma.reduce((m, x) => (Math.min(x.w, x.h) < Math.min(m.w, m.h) ? x : m));
+      const siddet = Math.min(enKucuk.w, enKucuk.h) < 24 ? 'ÖNEMLİ' : 'KÜÇÜK';
+      bulguEkle(cur, 'dokunma-hedefi', `44 px altında dokunmatik hedef: ${o.dokunma.length} öğe, en küçük ${enKucuk.w}x${enKucuk.h}`,
+        { sayi: o.dokunma.length, enKucuk: { w: enKucuk.w, h: enKucuk.h }, ornekler: o.dokunma.slice(0, 3).map((x) => `${x.oge} ${x.w}x${x.h}`) },
+        o.dokunma.map((x) => x.oge).join(';'), kare, siddet);
+    }
+  }
+  try {
+    const adsiz = await axAdsizOgeler(ctx);
+    if (adsiz.length) {
+      bulguEkle(cur, 'adsiz-oge', `Erişilebilirlik adı olmayan etkileşimli öğe: ${adsiz.length}`,
+        { sayi: adsiz.length, ornekler: adsiz.slice(0, 3).map((x) => `${x.rol}: ${x.oge}`) }, adsiz.map((x) => x.oge).join(';'), kare);
+    }
+  } catch (err) { hata('erisilebilirlik', err); }
+  try {
+    const g = await odakGezintisi(ctx);
+    cur.olcumler.odakGezintisi = { odaklanabilir: g.adet, kontrolEdilen: g.kontrolEdilen, odaksiz: g.odaksiz.length };
+    if (g.odaksiz.length) {
+      bulguEkle(cur, 'odak-yok', `Tab ile odaklanınca görünür odak göstergesi yok: ${g.odaksiz.length} öğe`,
+        { kontrolEdilen: g.kontrolEdilen, odaksiz: g.odaksiz.length, ornekler: g.odaksiz.slice(0, 3) }, g.odaksiz.join(';'), kare);
+    }
+  } catch (err) { hata('odak-gezintisi', err); }
+}
+
+async function adimCalistir(ctx, st, no) {
+  const cdp = ctx.cdp;
+  switch (st.adim) {
+    case 'goto': {
+      await yuklemeBekle(ctx, new URL(st.url, ctx.taban).href);
+      return;
+    }
+    case 'click': {
+      const nesne = await hedefBul(ctx, st, 3000);
+      const k = await nesneyeCagir(cdp, nesne, tikKonumu);
+      if (!k.gorunur || k.w === 0 || k.h === 0) throw new AdimHatasi(`hedef görünür değil: ${hedefAciklama(st)}`);
+      if (k.ortulu) throw new AdimHatasi(`hedef başka bir öğe tarafından örtülü, tıklanamaz: ${hedefAciklama(st)}`);
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: k.x, y: k.y });
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: k.x, y: k.y, button: 'left', clickCount: 1 });
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: k.x, y: k.y, button: 'left', clickCount: 1 });
+      return;
+    }
+    case 'fill': {
+      const nesne = await hedefBul(ctx, st, 3000);
+      await nesneyeCagir(cdp, nesne, odakla);
+      if (st.deger === '') await tusBas(cdp, 'Backspace');
+      else await cdp.send('Input.insertText', { text: st.deger });
+      return;
+    }
+    case 'press': {
+      await tusBas(cdp, st.tus);
+      return;
+    }
+    case 'waitFor': {
+      const sinir = Math.min(st.zamanAsimiMs ?? 5000, Math.max(0, ctx.requireTime('waitFor')));
+      const bitis = Date.now() + sinir;
+      for (;;) {
+        let bulundu;
+        if (st.metin) bulundu = (await govdeMetni(cdp)).includes(norm(st.metin));
+        else bulundu = (await hedefDene(ctx, st)) !== null;
+        if (st.kaybolur ? !bulundu : bulundu) return;
+        if (Date.now() >= bitis) break;
+        ctx.requireTime('waitFor');
+        await sleep(50);
+      }
+      throw new AdimHatasi(`zaman aşımı (${sinir} ms): ${st.kaybolur ? 'kaybolması beklenen' : 'beklenen'} ${hedefAciklama(st)}`);
+    }
+    case 'assertText': {
+      const bulundu = (await govdeMetni(cdp)).includes(norm(st.metin));
+      if (st.yok ? bulundu : !bulundu) throw new AdimHatasi(`${st.yok ? 'bulunmaması gereken' : 'beklenen'} metin ${st.yok ? 'sayfada' : 'sayfada yok'}: "${kisalt(st.metin, 80)}"`);
+      return;
+    }
+    case 'assertVisible': {
+      if (!(await hedefDene(ctx, st))) throw new AdimHatasi(`görünür öğe yok: ${hedefAciklama(st)}`);
+      return;
+    }
+    case 'screenshot': {
+      await kontrolNoktasi(ctx, st.ad);
+      return;
+    }
+    default:
+      throw new Error(`bilinmeyen adım: ${st.adim}`);
+  }
+}
+
+function yeniKayit(ctx, hucre) {
+  return {
+    hucre: hucre.id, senaryoAd: ctx.sen.ad,
+    konsol: [], istisna: [], ag: [], dis: [],
+    islenen: { konsol: 0, istisna: 0, ag: 0, dis: 0 },
+    bulgular: new Map(), adimlar: [], olcumler: {}, olcumHatalari: [], kareler: [],
+  };
+}
+
+async function hucreOrtaminiKur(ctx, hucre) {
+  const cdp = ctx.cdp;
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: hucre.genislik, height: hucre.yukseklik, deviceScaleFactor: 1, mobile: false });
+  await cdp.send('Emulation.setEmulatedMedia', {
+    features: [
+      { name: 'prefers-color-scheme', value: hucre.tema === 'koyu' ? 'dark' : 'light' },
+      { name: 'prefers-reduced-motion', value: 'reduce' },
+    ],
+  });
+  ctx.cur = null;
+  await cdp.send('Network.clearBrowserCache');
+  await cdp.send('Network.clearBrowserCookies');
+  await cdp.send('Storage.clearDataForOrigin', { origin: new URL(ctx.taban).origin, storageTypes: 'all' }).catch(() => {});
+  const bos = cdp.waitForEvent('Page.loadEventFired');
+  bos.catch(() => {});
+  await cdp.send('Page.navigate', { url: 'about:blank' });
+  await bos.catch(() => {});
+  ctx.bekleyen.clear();
+  ctx.sonAg = Date.now();
+}
+
+/** Bir hücrede senaryoyu bir kez koşar; kayıt (adımlar + bulgular) döndürür. */
+async function senaryoKos(ctx, hucre) {
+  await hucreOrtaminiKur(ctx, hucre);
+  const cur = yeniKayit(ctx, hucre);
+  ctx.cur = cur;
+  let basarisiz = false;
+  for (let i = 0; i < ctx.sen.adimlar.length; i++) {
+    const st = ctx.sen.adimlar[i];
+    const kayit = { no: i + 1, adim: st.adim, durum: 'atlandi' };
+    if (st.beklenti) kayit.beklenti = st.beklenti;
+    cur.adimlar.push(kayit);
+    if (basarisiz) continue;
+    const t0 = Date.now();
+    try {
+      await adimCalistir(ctx, st, i + 1);
+      kayit.durum = 'gecti';
+    } catch (err) {
+      if (!(err instanceof AdimHatasi)) throw err;
+      kayit.durum = 'basarisiz';
+      kayit.mesaj = err.message;
+      basarisiz = true;
+      bulguEkle(cur, 'adim-basarisiz', `Adım ${i + 1} (${st.adim}) başarısız: ${err.message}`,
+        { adimNo: i + 1, adim: st.adim, ...(st.beklenti ? { beklenti: st.beklenti } : {}) }, `${i + 1}`, null);
+    }
+    kayit.sureMs = Date.now() - t0;
+  }
+  await kontrolNoktasi(ctx, 'son');
+  const sonKare = cur.kareler[cur.kareler.length - 1];
+  for (const b of cur.bulgular.values()) if (!b.kare) b.kare = sonKare;
+  cur.sonKare = sonKare;
+  ctx.cur = null;
+  return cur;
+}
+
+function imzaUret(cur) {
+  return JSON.stringify({ adimlar: cur.adimlar.map((a) => a.durum), bulgular: [...cur.bulgular.keys()].sort() });
+}
+
+function bulguListesi(cur) {
+  return [...cur.bulgular.values()].map(({ anahtar, ...b }) => b);
+}
+
+function beklentileriDegerlendir(sonuc, beklenti, hucreKayitlari) {
+  if (!beklenti) return [];
+  return beklenti.beklentiler.map((b) => {
+    let adimSayisi = 0;
+    let basarisiz = 0;
+    for (const h of hucreKayitlari) {
+      for (const a of h.adimlar) {
+        if (a.beklenti !== b.id) continue;
+        adimSayisi++;
+        if (a.durum !== 'gecti') basarisiz++;
+      }
+    }
+    const durum = adimSayisi === 0 ? 'kanitsiz' : basarisiz === 0 ? 'karsilandi' : 'karsilanmadi';
+    return { id: b.id, metin: b.metin, durum, kanitAdimi: adimSayisi, basarisizAdim: basarisiz };
+  });
+}
+
+function tabloHucre(s) { return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' '); }
+
+function raporUret(sonuc, sablon) {
+  const o = sonuc.ozet;
+  const bulgular = sonuc.bulgular;
+  const olcumMetni = (b) => tabloHucre(kisalt(JSON.stringify(b.olcum), 200));
+  const bulguTablosu = bulgular.length
+    ? ['| Kimlik | Şiddet | Tür | Senaryo | Hücre | Ölçüm | Kare |', '|---|---|---|---|---|---|---|',
+      ...bulgular.map((b) => `| ${b.id} | ${b.siddet} | ${b.tur} | ${tabloHucre(b.senaryo)} | ${b.hucre} | \`${olcumMetni(b)}\` | ${b.kare ? `[${path.basename(b.kare)}](${b.kare})` : '-'} |`),
+    ].join('\n')
+    : 'Bulgu yok.';
+  const mesajlar = bulgular.length ? bulgular.map((b) => `- **${b.id}** (${b.siddet}, ${b.tur}, ${b.hucre}): ${tabloHucre(b.mesaj)}`).join('\n') : '';
+  const kararsiz = sonuc.kararsiz.length
+    ? sonuc.kararsiz.map((k) => `- ${k.hucre}: kararsız senaryo — ${k.fark}. Bu hücrenin bulguları ürün bulgusu SAYILMADI (sonuc.json > kararsizBulgular).`).join('\n')
+    : 'Kararsız hücre yok.';
+  const beklentiTablosu = sonuc.beklentiler.length
+    ? ['| Kimlik | Beklenti | Durum | Kanıt adımı |', '|---|---|---|---|',
+      ...sonuc.beklentiler.map((b) => `| ${b.id} | ${tabloHucre(b.metin ?? '')} | ${b.durum} | ${b.kanitAdimi} |`)].join('\n')
+    : '(beklenti dosyası verilmedi)';
+  const matrisTablosu = ['| Hücre | Adımlar | Bulgu | Son kare |', '|---|---|---|---|',
+    ...sonuc.matris.map((h) => `| ${h.hucre} | ${h.adimlar.map((a) => a.durum).join(', ')} | ${bulgular.filter((b) => b.hucre === h.hucre).length} | [${path.basename(h.kare)}](${h.kare}) |`)].join('\n');
+  const olcumUyarilari = sonuc.matris.flatMap((h) => h.olcumHatalari.map((m) => `- ${h.hucre}: ${m}`));
+  const karar = o['ENGELLEYİCİ'] + o['ÖNEMLİ'] > 0 ? 'ENGELLEYİCİ/ÖNEMLİ bulgu var: düzeltilmeden geçirilmez (çıkış 1)' : o['KÜÇÜK'] > 0 ? 'Yalnız KÜÇÜK bulgu var (çıkış 0)' : 'Bulgu yok (çıkış 0)';
+  const yer = {
+    senaryo_ad: sonuc.senaryo.ad, hedef: sonuc.hedef.tur === 'sun' ? 'yerel salt-okunur sunucu (--sun, 127.0.0.1)' : sonuc.hedef.adres,
+    matris: sonuc.ayarlar.matris.join(', '), tema: sonuc.ayarlar.tema.join(', '), tekrar: String(sonuc.ayarlar.tekrar),
+    engelleyici: String(o['ENGELLEYİCİ']), onemli: String(o['ÖNEMLİ']), kucuk: String(o['KÜÇÜK']), karar,
+    bulgu_tablosu: bulguTablosu, bulgu_mesajlari: mesajlar, kararsiz, beklenti_tablosu: beklentiTablosu, matris_tablosu: matrisTablosu,
+    olcum_uyarilari: olcumUyarilari.length ? olcumUyarilari.join('\n') : 'Ölçüm uyarısı yok.',
+    tamamlandi: sonuc.tamamlandi ? 'evet' : `HAYIR (${sonuc.hata ?? 'bilinmeyen hata'})`,
+  };
+  return sablon.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (m, k) => (k in yer ? yer[k] : m));
+}
+
+function sonucuYaz(ctx, tamamlandi, hata) {
+  const bulgular = [];
+  const say = { 'ENGELLEYİCİ': 0, 'ÖNEMLİ': 0, 'KÜÇÜK': 0 };
+  const sirali = ctx.sayilanBulgular.slice().sort((x, y) => SIDDET_SIRA.indexOf(x.siddet) - SIDDET_SIRA.indexOf(y.siddet) || x.hucre.localeCompare(y.hucre) || x.tur.localeCompare(y.tur));
+  sirali.forEach((b, i) => { bulgular.push({ id: `F${i + 1}`, ...b }); say[b.siddet]++; });
+  const beklentiler = beklentileriDegerlendir(null, ctx.beklenti, ctx.kararliKayitlar);
+  for (const b of beklentiler) {
+    if (b.durum !== 'kanitsiz') continue;
+    const f = { id: `F${bulgular.length + 1}`, tur: 'beklenti-kanitsiz', siddet: 'ÖNEMLİ', senaryo: ctx.sen.ad, hucre: 'tum', mesaj: `Beklenti ${b.id} hiçbir senaryo adımıyla kanıtlanmıyor`, olcum: { beklenti: b.id, kanitAdimi: 0 }, kare: null };
+    bulgular.push(f);
+    say['ÖNEMLİ']++;
+  }
+  const kod = say['ENGELLEYİCİ'] + say['ÖNEMLİ'] > 0 ? 1 : 0;
+  const sonuc = {
+    surum: 1,
+    senaryo: { ad: ctx.sen.ad },
+    hedef: { tur: ctx.a.sun ? 'sun' : 'url', adres: ctx.taban },
+    ayarlar: { matris: ctx.matris.map((m) => `${m.genislik}x${m.yukseklik}`), tema: ctx.temalar, tekrar: ctx.a.tekrar, setup: Boolean(ctx.a.setup) },
+    tamamlandi, ...(hata ? { hata } : {}),
+    ozet: say, cikis: tamamlandi ? kod : 3,
+    bulgular, kararsizBulgular: ctx.kararsizBulgular, kararsiz: ctx.kararsiz, beklentiler,
+    matris: ctx.hucreSonuclari,
+  };
+  mkdirSync(ctx.out, { recursive: true });
+  writeFileSync(path.join(ctx.out, 'sonuc.json'), `${JSON.stringify(sonuc, null, 2)}\n`);
+  writeFileSync(path.join(ctx.out, 'RAPOR.md'), raporUret(sonuc, readFileSync(ctx.raporSablon, 'utf8')));
+  return { kod, say };
+}
+
+async function oturumuKur(ctx) {
+  const { cdp, a } = ctx;
+  ctx.bekleyen = new Set();
+  ctx.sonAg = Date.now();
+  ctx.urlHaritasi = new Map();
+  ctx.cur = null;
+  cdp.on('Runtime.consoleAPICalled', (p) => {
+    if (!ctx.cur || (p.type !== 'error' && p.type !== 'assert')) return;
+    ctx.cur.konsol.push((p.args ?? []).map((x) => x.value ?? x.description ?? '').join(' '));
+  });
+  cdp.on('Runtime.exceptionThrown', (p) => {
+    if (!ctx.cur) return;
+    const d = p.exceptionDetails;
+    ctx.cur.istisna.push({ metin: describeException(d).split('\n')[0], konum: `${yolMetni(d.url ?? '')}:${d.lineNumber ?? '?'}` });
+  });
+  cdp.on('Network.requestWillBeSent', (p) => {
+    ctx.bekleyen.add(p.requestId);
+    ctx.sonAg = Date.now();
+    ctx.urlHaritasi.set(p.requestId, p.request.url);
+  });
+  cdp.on('Network.responseReceived', (p) => {
+    ctx.sonAg = Date.now();
+    if (ctx.cur && p.response.status >= 400) ctx.cur.ag.push({ durum: p.response.status, yol: yolMetni(p.response.url), tur: p.type });
+  });
+  cdp.on('Network.loadingFinished', (p) => { ctx.bekleyen.delete(p.requestId); ctx.sonAg = Date.now(); });
+  cdp.on('Network.loadingFailed', (p) => {
+    ctx.bekleyen.delete(p.requestId);
+    ctx.sonAg = Date.now();
+    if (!ctx.cur || p.canceled || /ERR_BLOCKED_BY_CLIENT/.test(p.errorText ?? '')) return;
+    ctx.cur.ag.push({ hata: p.errorText, yol: yolMetni(ctx.urlHaritasi.get(p.requestId) ?? ''), tur: p.type });
+  });
+  // URL bekçisinin çalışma zamanı kolu: 127.0.0.1 dışına giden HER istek (yönlendirmeler dahil) gönderilmeden ENGELLENİR.
+  cdp.on('Fetch.requestPaused', (p) => {
+    const url = p.request.url;
+    if (izinliIstek(url)) {
+      cdp.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {});
+      return;
+    }
+    if (ctx.cur) ctx.cur.dis.push({ host: hostMetni(url) });
+    cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'BlockedByClient' }).catch(() => {});
+  });
+  for (const d of ['Page.enable', 'Runtime.enable', 'Network.enable', 'DOM.enable', 'Accessibility.enable']) await cdp.send(d);
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
+  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
+  await cdp.send('Emulation.setTimezoneOverride', { timezoneId: 'Europe/Istanbul' }).catch(() => {});
+  await cdp.send('Emulation.setLocaleOverride', { locale: 'tr-TR' }).catch(() => {});
+  const surum = await cdp.send('Browser.getVersion').catch(() => null);
+  if (surum?.userAgent) {
+    await cdp.send('Emulation.setUserAgentOverride', { userAgent: surum.userAgent.replace('HeadlessChrome', 'Chrome'), acceptLanguage: 'tr-TR,tr' }).catch(() => {});
+  }
+  if (a.setup) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: a.setup });
+}
+
+async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon }) {
+  installSignalHandlers();
+  const profileDir = mkdtempSync(path.join(os.tmpdir(), 'ux-sinama-'));
+  console.error(`profil: ${profileDir}`);
+  const state = { child: null, ws: null, profileDir, done: false, sunucu: null };
+  activeState = state;
+  const deadline = Date.now() + a.timeoutMs;
+  const remainingMs = () => deadline - Date.now();
+  const requireTime = (label) => {
+    const rem = remainingMs();
+    if (rem <= 0) throw new Error(`Toplam süre sınırı aşıldı (${label}, --timeout-ms=${a.timeoutMs})`);
+    return rem;
+  };
+  const ctx = {
+    a, sen, beklenti, matris, temalar, raporSablon, out: path.resolve(a.out), remainingMs, requireTime,
+    taban: null, cdp: null, cur: null, hucreSonuclari: [], sayilanBulgular: [], kararsizBulgular: [], kararsiz: [], kararliKayitlar: [],
+  };
+  let kod = 3;
+  try {
+    if (a.sun) {
+      state.sunucu = await statikSunucuBaslat(a.sun);
+      ctx.taban = `http://127.0.0.1:${state.sunucu.port}/`;
+      console.error(`sunucu: ${ctx.taban}`);
+    } else {
+      ctx.taban = a.url;
+    }
+    state.child = spawnBrowser(tarayici, profileDir);
+    state.child.on('error', () => {});
+    const port = await waitForDevToolsActivePort(profileDir, requireTime('DevToolsActivePort'));
+    console.error(`cdp: port=${port} profil=${profileDir}`);
+    const target = await waitForPageTarget(port, requireTime('page hedefi'));
+    const ws = new WebSocket(target.webSocketDebuggerUrl);
+    state.ws = ws;
+    await withTimeout(
+      new Promise((resolve, reject) => {
+        ws.addEventListener('open', resolve, { once: true });
+        ws.addEventListener('error', () => reject(new Error('WebSocket bağlantı hatası')), { once: true });
+      }),
+      requireTime('WebSocket açılışı'),
+      'WebSocket bağlantısı zaman aşımına uğradı',
+    );
+    ctx.cdp = new CdpClient(ws, remainingMs);
+    await oturumuKur(ctx);
+
+    for (const m of matris) {
+      for (const tema of temalar) {
+        const hucre = { id: `${m.genislik}x${m.yukseklik}-${tema}`, genislik: m.genislik, yukseklik: m.yukseklik, tema };
+        console.error(`hücre: ${hucre.id}`);
+        const kosular = [];
+        for (let t = 0; t < a.tekrar; t++) kosular.push(await senaryoKos(ctx, hucre));
+        const imzalar = kosular.map(imzaUret);
+        const kararli = imzalar.every((s) => s === imzalar[0]);
+        const ilk = kosular[0];
+        if (!kararli) {
+          const kumeler = kosular.map((k) => [...k.bulgular.keys()]);
+          const farkli = new Set(kumeler.flat().filter((k) => !kumeler.every((c) => c.includes(k))));
+          const adimFarki = kosular.map((k) => k.adimlar.map((x) => x.durum).join('/'));
+          ctx.kararsiz.push({ hucre: hucre.id, fark: `tekrarlar arasında adım durumları [${adimFarki.join(' | ')}] ve ${farkli.size} bulgu farklı`, tekrarlar: kosular.length });
+          ctx.kararsizBulgular.push(...bulguListesi(ilk));
+        } else {
+          ctx.sayilanBulgular.push(...bulguListesi(ilk));
+          ctx.kararliKayitlar.push(ilk);
+        }
+        ctx.hucreSonuclari.push({
+          hucre: hucre.id, genislik: hucre.genislik, yukseklik: hucre.yukseklik, tema, kararli,
+          adimlar: ilk.adimlar, olcumler: ilk.olcumler, olcumHatalari: ilk.olcumHatalari, kare: ilk.sonKare,
+        });
+      }
+    }
+    await ctx.cdp.send('Browser.close').catch(() => {});
+    const { kod: k, say } = sonucuYaz(ctx, true, null);
+    kod = k;
+    console.log(`ÖZET: ENGELLEYİCİ=${say['ENGELLEYİCİ']} ÖNEMLİ=${say['ÖNEMLİ']} KÜÇÜK=${say['KÜÇÜK']} kararsız=${ctx.kararsiz.length} çıkış=${kod}`);
+    console.log(`Rapor: ${path.join(a.out, 'RAPOR.md')}`);
+  } catch (err) {
+    console.error(`Hata: ${err.message}`);
+    try { sonucuYaz(ctx, false, err.message); } catch {}
+    kod = 3;
+  } finally {
+    await cleanupResources(state);
+    activeState = null;
+  }
+  return kod;
+}
+
+// ---------------------------------------------------------------------------------------------
+// main
+// ---------------------------------------------------------------------------------------------
+
+async function main() {
+  let a;
+  try {
+    a = argumanAyristir(process.argv.slice(2));
+  } catch (err) {
+    console.error(`Hata: ${err.message}`);
+    console.error(HELP);
+    return 2;
+  }
+  if (a.help) { console.log(HELP); return 0; }
+
+  let sen; let ozel = []; let beklenti = null; let matris; let temalar; let raporSablon;
+  try {
+    const eksik = [];
+    if (!a.senaryo) eksik.push('--senaryo');
+    if (!a.url && !a.sun) eksik.push('--url (ya da --sun)');
+    if (!a.out) eksik.push('--out');
+    if (eksik.length) throw new KullanimHatasi(`zorunlu parametre eksik: ${eksik.join(', ')}`);
+    if (a.url && a.sun) throw new KullanimHatasi('--url ve --sun birlikte verilemez');
+    matris = matrisAyristir(a.matris);
+    temalar = temaAyristir(a.tema);
+    if (a.url && !urlBekcisi(a.url)) {
+      throw new KullanimHatasi(`--url reddedildi: yalnız http://127.0.0.1:PORT/... kabul edilir (localhost, başka IP, ana makine adı, https ve file: yasak)`);
+    }
+    if (a.sun && !(existsSync(a.sun) && statSync(a.sun).isDirectory())) throw new KullanimHatasi(`--sun dizini bulunamadı: ${a.sun}`);
+    sen = senaryoDogrula(jsonOku(a.senaryo, '--senaryo dosyası'));
+    beklenti = beklentiDogrula(a.beklenti ? jsonOku(a.beklenti, '--beklenti dosyası') : null, sen);
+    if (a.yasakDesen) ozel = ozelDesenleriOku(a.yasakDesen);
+    raporSablon = a.raporSablon ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'RAPOR-template.md');
+    if (!existsSync(raporSablon)) throw new KullanimHatasi(`rapor şablonu bulunamadı: ${path.basename(raporSablon)}`);
+  } catch (err) {
+    if (!(err instanceof KullanimHatasi)) throw err;
+    console.error(`Hata: ${err.message}`);
+    return 2;
+  }
+
+  // Yasak desen bekçisi: tarayıcı açılmadan, hiçbir şey başlamadan.
+  const dosyalar = [{ ad: path.basename(a.senaryo), metin: readFileSync(a.senaryo, 'utf8') }];
+  if (a.beklenti) dosyalar.push({ ad: path.basename(a.beklenti), metin: readFileSync(a.beklenti, 'utf8') });
+  if (a.setup) dosyalar.push({ ad: '--setup', metin: a.setup });
+  if (a.sun) dosyalar.push(...sunMetinDosyalari(a.sun));
+  const yasaklar = yasakTara({ dosyalar, ozel });
+  if (yasaklar.length) {
+    console.error('Hata: yasak desen bekçisi — gerçek kişisel veri izlenimi veren içerik bulundu; HİÇBİR ŞEY BAŞLATILMADI.');
+    for (const y of yasaklar) console.error(`  ${y.dosya}:${y.satir}  desen=${y.desen}`);
+    console.error('Eşleşen metin bilerek yazılmaz. Sahte/anonim değerle değiştirin ya da --yasak-desen dosyanızı gözden geçirin.');
+    return 2;
+  }
+
+  const tarayici = tarayiciBul(a.browser);
+  if (!tarayici) {
+    console.error('Hata: Tarayıcı bulunamadı. --browser ile yol ver ya da CAPTURE_BROWSER ortam değişkenini ayarla.');
+    return 2;
+  }
+
+  return kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon });
+}
+
+function anaModulMu() {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (anaModulMu()) {
+  main().then(
+    (kod) => process.exit(kod),
+    (err) => { console.error(`Hata: ${err?.message ?? err}`); process.exit(3); },
+  );
+}

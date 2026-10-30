@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kusurlu sayfa (test fixture'ı)</title>
+<link rel="icon" href="data:,">
+<style>
+  /* Her kusur KASITLI: ux-sinama koşucusunun denetimleri bunları yakalamalı. */
+  body { font-family: sans-serif; margin: 0; padding: 8px; }
+  .genis { width: 1500px; height: 20px; background: #ddd; }          /* yatay taşma */
+  .kucuk-yazi { font-size: 9px; }                                    /* aşırı küçük yazı */
+  .mini { width: 20px; height: 20px; padding: 0; }                   /* küçük dokunmatik hedef */
+  a.odaksiz:focus, a.odaksiz:focus-visible { outline: none; }        /* odak halkası kapalı */
+  a.odaksiz { color: #0000ee; text-decoration: none; display: inline-block; padding: 12px; }
+</style>
+</head>
+<body>
+<h1>Kusurlu sayfa</h1>
+<h4>Atlanan başlık düzeyi</h4>
+<div class="genis">çok geniş kutu</div>
+<button id="adsiz"><svg width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#333"></rect></svg></button>
+<img id="altsiz" width="40" height="40" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+<button class="mini" id="mini">x</button>
+<a class="odaksiz" href="#hedef">odağı görünmeyen bağlantı</a>
+<p class="kucuk-yazi">çok küçük yazı</p>
+<script>
+  console.error('kasitli konsol hatasi');
+  setTimeout(function () { throw new Error('kasitli yakalanmamis istisna'); }, 0);
+</script>
+<script src="/yok-olan-betik.js"></script>
+</body>
+</html>
