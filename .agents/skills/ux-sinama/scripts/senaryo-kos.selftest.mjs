@@ -133,7 +133,7 @@ const MIN_SENARYO = { ad: 'asgari', adimlar: [{ adim: 'goto', url: '/' }] };
 
 test('modül yüklenir ve beklenen işlevleri dışa aktarır', () => {
   assert.ok(mod, `senaryo-kos.mjs yüklenemedi: ${modHata}`);
-  for (const ad of ['urlBekcisi', 'yasakTara', 'statikSunucuBaslat', 'tarayiciBul']) {
+  for (const ad of ['urlBekcisi', 'yasakTara', 'statikSunucuBaslat', 'tarayiciBul', 'tarayiciBayraklari', 'killByProfileDir']) {
     assert.equal(typeof mod[ad], 'function', `${ad} dışa aktarılmalı`);
   }
 });
@@ -168,7 +168,8 @@ test('yasakTara: 11 haneli sayı, TR cep telefonu ve e-posta yakalanır; eşleş
     'tr-cep#2': 'ara: +905321234567',
     'tr-cep#3': 'ara: 05321234567',
     'tr-cep#4': 'ara: (0532) 123 45 67',
-    'eposta': 'yaz: ayse.yilmaz@ornek-alan.com.tr',
+    'eposta': 'yaz: ayse.yilmaz@example.com',
+    'tr-cep#5 (ayraçsız 10 hane)': 'ara: 5321234567',
   };
   for (const [ad, metin] of Object.entries(eslesmeli)) {
     const r = mod.yasakTara({ dosyalar: [{ ad: 'x.json', metin }], ozel: [] });
@@ -186,6 +187,9 @@ test('yasakTara: 11 haneli sayı, TR cep telefonu ve e-posta yakalanır; eşleş
     'fiyat 5.000 TL',
     'width: 1280px; height: 800px',
     '1767225600000',
+    '1767225600',
+    '532123456789',
+    'sayaç 95321234567890 bitti',
   ];
   for (const metin of temiz) {
     assert.deepEqual(mod.yasakTara({ dosyalar: [{ ad: 'y.txt', metin }], ozel: [] }), [], metin);
@@ -284,7 +288,7 @@ test('CLI: yasak desen bekçisi — telefon/e-posta senaryoda, ve --sun dizinind
 
   const kok = path.join(tmpDir, 'yasak2/site');
   mkdirSync(kok, { recursive: true });
-  writeFileSync(path.join(kok, 'index.html'), '<p>iletişim:\n ayse.yilmaz@ornek-alan.com</p>');
+  writeFileSync(path.join(kok, 'index.html'), '<p>iletişim:\n ayse.yilmaz@example.com</p>');
   const sen2 = yaz('yasak2/temiz.json', MIN_SENARYO);
   const r2 = await kos(['--senaryo', sen2, '--sun', kok, '--out', path.join(tmpDir, 'yasak2/o2')]);
   assert.equal(r2.status, 2, r2.stderr);
@@ -334,11 +338,60 @@ test('CLI: kullanım hataları çıkış 2 — --senaryo yok, --url ve --sun bir
   }
 });
 
-test('CLI: --help çıkış 0 ve kullanım metni yazar', async () => {
+test('CLI: --help çıkış 0 ve kullanım metni yazar; adım türlerini ve seçenekleri gerçekten verir', async () => {
   const r = await kos(['--help']);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /senaryo-kos\.mjs/);
   assert.match(r.stdout, /127\.0\.0\.1/);
+  // SKILL.md'den taşınan içerik: adım tablosu ve seçenekler yalnız burada durur
+  for (const adim of ['goto', 'click', 'fill', 'press', 'waitFor', 'assertText', 'assertVisible', 'screenshot']) {
+    assert.match(r.stdout, new RegExp(`\\b${adim}\\b`), `--help adım türünü anlatmalı: ${adim}`);
+  }
+  for (const alan of ['role', 'name', 'metin', 'deger', 'tus', 'kaybolur', 'zamanAsimiMs', 'beklenti']) {
+    assert.match(r.stdout, new RegExp(alan), `--help adım alanını anlatmalı: ${alan}`);
+  }
+  for (const secenek of ['--matris', '--tema', '--tekrar', '--setup', '--yasak-desen', '--timeout-ms', '--browser', '--sun', '--url', '--out', '--beklenti']) {
+    assert.match(r.stdout, new RegExp(secenek), `--help seçeneği anlatmalı: ${secenek}`);
+  }
+  assert.match(r.stdout, /ENGELLEY/, '--help çıkış kodlarını/şiddeti anlatmalı');
+  assert.match(r.stdout, /480/, '--help dokunmatik hedef eşiğini (≤480) söylemeli');
+});
+
+// --- SKILL.md sözleşmesi (Fable Tur 1 bulguları) ---
+const SKILL_MD = readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+const sozcukSayisi = (m) => m.split(/\s+/).filter(Boolean).length;
+
+test('SKILL.md: kişisel/sağlık verisi taşıyan arayüzde çalıştırılmaz sınırı yazılı (ENGELLEYİCİ-1)', () => {
+  assert.ok(
+    SKILL_MD.includes('Kişisel ya da sağlık verisi taşıyan arayüzlerde çalıştırılmaz: kareler ekrandaki her şeyi alır, rapor konsol ve öğe metnini içerir; bu ekranları insan gözle sına.'),
+    'SKILL.md bu sınır cümlesini içermeli',
+  );
+});
+
+test('SKILL.md: hafif kalır (≤550 sözcük), ağ sınırı dürüst (WebSocket/WebRTC kapsam dışı), eşik ve bekçi iddiası hizalı (ÖNEMLİ-3, KÜÇÜK d/e)', () => {
+  const n = sozcukSayisi(SKILL_MD);
+  assert.ok(n <= 550, `SKILL.md ${n} sözcük (en çok 550)`);
+  assert.match(SKILL_MD, /WebSocket/);
+  assert.match(SKILL_MD, /WebRTC/);
+  assert.match(SKILL_MD, /480/, 'dokunmatik hedef eşiği ≤480');
+  assert.doesNotMatch(SKILL_MD, /bekçi bunu kodda zorlar/, 'abartılı bekçi iddiası kalmamalı');
+  assert.match(SKILL_MD, /ad\/adres/i,'bekçinin yakalamadığı (ad/adres) sınayıcıya aittir');
+  assert.match(SKILL_MD, /--help/, 'adım ve seçenek ayrıntısı --help\'e yönlendirilmeli');
+  const sablon = readFileSync(path.join(__dirname, '..', 'RAPOR-template.md'), 'utf8');
+  assert.doesNotMatch(sablon, /düzeltme önermez/, 'şablon SKILL.md ile çelişmemeli');
+  assert.doesNotMatch(sablon, /yalnız 390/, 'eşik 390 değil ≤480 genişlik');
+  assert.match(sablon, /480/);
+});
+
+test('tarayiciBayraklari: yeni hedefler engelli, loopback dışı trafik ölü proxy\'de, profil dizini ve about:blank korunur', () => {
+  assert.ok(mod, 'modül yok');
+  const b = mod.tarayiciBayraklari('PROFIL-X');
+  assert.ok(b.includes('--block-new-web-contents'));
+  assert.ok(b.includes('--proxy-server=127.0.0.1:1'));
+  assert.ok(b.includes('--user-data-dir=PROFIL-X'));
+  assert.ok(b.includes('--headless=new'));
+  assert.equal(b[b.length - 1], 'about:blank');
+  assert.ok(mod.tarayiciBayraklari('P', { proxyPort: 4242 }).includes('--proxy-server=127.0.0.1:4242'));
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -616,7 +669,10 @@ test('beklenti.json: kanıtlı beklenti karşılandı, adımsız beklenti kanıt
 function profilDizini(stderr) {
   const m = stderr.match(/profil: (.+)/);
   assert.ok(m, `stderr'de profil satırı yok:\n${stderr}`);
-  return m[1].trim();
+  const ad = m[1].trim();
+  assert.equal(ad, path.basename(ad), 'stderr tam profil yolu (kullanıcı adı içerir) yazmamalı; yalnız dizin adı');
+  assert.doesNotMatch(stderr, /cdp: port=\d+ profil=\S*[\\/]/, 'cdp satırı da tam yol yazmamalı');
+  return path.join(runRoot, ad);
 }
 
 test('süreç hijyeni: başarı, ENGELLEYİCİ bulgu ve zaman aşımı yollarında profil dizini ve tarayıcı süreci kalmaz; --sun sunucusu kapanır', B_ATLA, async () => {
@@ -654,4 +710,120 @@ test('süreç hijyeni: başarı, ENGELLEYİCİ bulgu ve zaman aşımı yolların
   assert.equal(existsSync(pd4), false, 'profil dizini hâlâ duruyor (çalışırken zaman aşımı)');
   assert.equal(countProcessesWithProfile(pd4), 0, 'yetim tarayıcı (çalışırken zaman aşımı)');
   assert.equal(countProcessesWithProfile(runRoot), 0, 'runRoot altında yetim tarayıcı');
+});
+
+// ---------------------------------------------------------------------------------------------
+// C. TUR 2 (Fable bulguları): çıktı bekçisi, yeni hedef / proxy savunması
+// ---------------------------------------------------------------------------------------------
+
+function sayfaSunucusu(govde, { ekBasliklar = {} } = {}) {
+  return createServer((req, res) => {
+    if (req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...ekBasliklar });
+      res.end(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>s</title><link rel="icon" href="data:,"></head><body>${govde}</body></html>`);
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+}
+const dinle = (s) => new Promise((r) => s.listen(0, '127.0.0.1', r));
+const kapat = (s) => new Promise((r) => s.close(r));
+
+test('çıktı bekçisi: konsola 11 haneli sayı basan sayfa → sonuc.json ve RAPOR.md YAZILMAZ, yalnız dosya:satır ve desen adı stderr\'e, çıkış 2', B_ATLA, async () => {
+  // 11 hane kaynakta bitişik yazılmaz; yalnız çalışma zamanında oluşur (girdi bekçisi bunu göremez)
+  const sunucu = sayfaSunucusu('<h1>Sızıntı</h1><script>console.error("kimlik " + "1234567" + "8901")</script>');
+  await dinle(sunucu);
+  try {
+    const sen = yaz('c/sizinti.json', { ad: 'sizinti', adimlar: [{ adim: 'goto', url: '/' }] });
+    const { r, out, sonuc } = await calis('sizinti', [
+      '--senaryo', sen, '--url', `http://127.0.0.1:${sunucu.address().port}/`, '--matris', '1280x800', '--tema', 'acik',
+    ]);
+    assert.equal(r.status, 2, `stderr:\n${r.stderr}\nstdout:\n${r.stdout}`);
+    assert.equal(sonuc, null, 'sonuc.json YAZILMAMALI');
+    assert.equal(existsSync(path.join(out, 'RAPOR.md')), false, 'RAPOR.md YAZILMAMALI');
+    assert.match(r.stderr, /sonuc\.json:\d+\s+desen=on-bir-hane/, 'dosya:satır ve desen adı yazılmalı');
+    assert.doesNotMatch(r.stderr + r.stdout, /12345678901/, 'eşleşen değer ASLA yazılmamalı');
+    assert.doesNotMatch(r.stdout, /ÖZET/);
+  } finally {
+    await kapat(sunucu);
+  }
+});
+
+test('çıktı bekçisi: --yasak-desen özel desenleri de çıktıda uygulanır', B_ATLA, async () => {
+  const sunucu = sayfaSunucusu('<h1>Sızıntı</h1><script>console.error("GIZLIMARKA-" + 7)</script>');
+  await dinle(sunucu);
+  try {
+    const desen = yaz('c/desenler.txt', 'GIZLIMARKA-\\d+\n');
+    const sen = yaz('c/sizinti2.json', { ad: 'sizinti2', adimlar: [{ adim: 'goto', url: '/' }] });
+    const { r, out, sonuc } = await calis('sizinti2', [
+      '--senaryo', sen, '--url', `http://127.0.0.1:${sunucu.address().port}/`, '--yasak-desen', desen, '--matris', '1280x800', '--tema', 'acik',
+    ]);
+    assert.equal(r.status, 2, r.stderr);
+    assert.equal(sonuc, null);
+    assert.equal(existsSync(path.join(out, 'RAPOR.md')), false);
+    assert.match(r.stderr, /desen=ozel:/);
+    assert.doesNotMatch(r.stderr, /GIZLIMARKA-7/);
+  } finally {
+    await kapat(sunucu);
+  }
+});
+
+// Savunma derinliği: CDP Fetch bekçisi yalnız ana sayfa hedefini görür; window.open ile açılan yeni hedefin
+// loopback dışı trafiği (192.0.2.1 = TEST-NET-1) ölü proxy'ye düşmelidir. Burada proxy yerine İZLEYEN bir
+// vekil sunucu kullanılır: dış istek vekile düşer (= doğrudan çıkmadı), loopback vekile uğramaz (= muaf).
+test('proxy: loopback proxy\'den muaftır (sınama bozulmaz), loopback dışı trafik proxy\'ye düşer; window.open ile açılan yeni hedef doğrudan dışarı çıkmaz', B_ATLA, async () => {
+  const proxyGoruldu = [];
+  const proxy = createServer((req, res) => {
+    proxyGoruldu.push(req.url);
+    res.writeHead(502);
+    res.end();
+  });
+  proxy.on('connect', (req, soket) => {
+    proxyGoruldu.push(req.url);
+    soket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+  });
+  await dinle(proxy);
+  const yerelGoruldu = [];
+  const yerel = createServer((req, res) => {
+    yerelGoruldu.push(req.url);
+    if (req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!doctype html><title>p</title><img alt="dış" src="http://192.0.2.1/dis.png"><img alt="iç" src="/ok.svg">'
+        + `<script>window.open('http://127.0.0.1:${yerel.address().port}/popup-yerel'); window.open('http://192.0.2.1/popup-dis');</script>`);
+    } else {
+      res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
+    }
+  });
+  await dinle(yerel);
+  const profil = mkdtempSync(path.join(runRoot, 'proxy-profil-'));
+  let child = null;
+  try {
+    const args = mod.tarayiciBayraklari(profil, { proxyPort: proxy.address().port });
+    // yalnız bu testte: script ile açılan popup'a (kullanıcı hareketi olmadan) izin ver
+    args.splice(args.length - 1, 1, '--disable-popup-blocking', `http://127.0.0.1:${yerel.address().port}/`);
+    child = spawn(mod.tarayiciBul(null), args, { stdio: 'ignore' });
+    const bitis = Date.now() + 25000;
+    while (Date.now() < bitis && !(proxyGoruldu.some((u) => /192\.0\.2\.1/.test(u)) && yerelGoruldu.includes('/ok.svg'))) {
+      await new Promise((res) => setTimeout(res, 200));
+    }
+    await new Promise((res) => setTimeout(res, 2000)); // popup'ların oturması için
+    assert.ok(yerelGoruldu.includes('/ok.svg'), `loopback hedefi proxy'siz yüklenmeli: ${yerelGoruldu.join(',')}`);
+    assert.ok(proxyGoruldu.some((u) => /192\.0\.2\.1/.test(u)), `dış istek proxy'ye düşmeli: ${proxyGoruldu.join(',')}`);
+    assert.equal(proxyGoruldu.some((u) => /127\.0\.0\.1/.test(u)), false, 'loopback proxy\'ye gitmemeli');
+    // yeni hedef: açıldıysa (loopback popup yüklendiyse) dış popup'ı da proxy'ye düşmüş olmalı; açılmadıysa
+    // (--block-new-web-contents etkiliyse) yeni hedef zaten yok. İki durumda da doğrudan dış çıkış yok.
+    if (yerelGoruldu.includes('/popup-yerel')) {
+      assert.ok(proxyGoruldu.some((u) => /192\.0\.2\.1.*popup-dis/.test(u)), `dış popup proxy'ye düşmeli: ${proxyGoruldu.join(',')}`);
+    }
+    console.error(`bilgi: yeni hedef ${yerelGoruldu.includes('/popup-yerel') ? 'AÇILDI (dış trafiği proxy\'ye düştü)' : 'ENGELLENDİ'}`);
+  } finally {
+    if (mod?.killByProfileDir) mod.killByProfileDir(profil);
+    child?.kill();
+    await new Promise((res) => setTimeout(res, 500));
+    try { rmSync(profil, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
+    await kapat(proxy);
+    await kapat(yerel);
+  }
 });

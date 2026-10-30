@@ -1,6 +1,6 @@
 # UX sınama raporu: {{senaryo_ad}}
 
-> Bu dosya `senaryo-kos.mjs` tarafından `sonuc.json`'dan üretilir; elle düzenlenmez. Sınayıcı yalnız gözlemler: kod değiştirmez, düzeltme önermez.
+> Bu dosya `senaryo-kos.mjs` tarafından `sonuc.json`'dan üretilir; elle düzenlenmez. Sınayıcı yalnız gözlemler: kod değiştirmez; düzeltmeyi yazar yapar (öneri bulgu başına en çok bir cümledir).
 
 - **Hedef:** {{hedef}}
 - **Matris:** {{matris}} · tema: {{tema}} · tekrar: {{tekrar}}
@@ -40,4 +40,4 @@ Bir denetim çalıştırılamadıysa burada yazar; sessizce atlanmaz.
 
 - Yalnız `127.0.0.1` üzerinde, başsız tarayıcıyla, belirtilen senaryo ve matris için geçerlidir; olmayan senaryo "sorunsuz" demek değildir.
 - Görsel fark (piksel karşılaştırma) bu sürümde yoktur; kareler insan/inceleyici gözü içindir.
-- Otomatik denetimler: konsol hatası/istisna, ağ 4xx/5xx, 127.0.0.1 dışı istek, yatay taşma, adsız etkileşimli öğe, `alt`sız görsel, başlık atlaması, dokunmatik hedef (<44 px, yalnız 390 px), Tab odağı, yazı <12 px.
+- Otomatik denetimler: konsol hatası/istisna, ağ 4xx/5xx, 127.0.0.1 dışı istek, yatay taşma, adsız etkileşimli öğe, `alt`sız görsel, başlık atlaması, dokunmatik hedef (<44 px, yalnız ≤480 px genişlikte), Tab odağı, yazı <12 px.

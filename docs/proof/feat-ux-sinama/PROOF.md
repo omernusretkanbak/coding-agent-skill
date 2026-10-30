@@ -77,13 +77,14 @@ Orkestratör, 2026-10-30, cwd = worktree, yazar raporuna dayanmadan kendi koşus
 - `UX_SINAMA_TARAYICI_ZORUNLU=1 node .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` -> tests 24, pass 24, fail 0, skipped 0 (~106 sn).
 - `node scripts/kur.mjs --hedef hepsi --kontrol` -> "kanonik kaynak ile kopyalar birebir aynı".
 - Kapsam: `git status` yalnız AGENTS.md, README.md, docs/KURULUM.md, tests/kur.test.mjs değişikliği + yeni `.claude/skills/ux-sinama/`, `.agents/skills/ux-sinama/`, `docs/proof/feat-ux-sinama/`; `git diff --stat` 4 dosya +37/-1.
-- Sızıntı ön taraması (grep: kişisel ad, yerel yol, eczane/hasta, hub terimleri, özel IP, tailscale, proje adları): yalnız redd edilmesi test edilen genel örnek `192.168.1.5` ve depo sahibinin zaten yayında olan şablon komutu çıktı; ayrıca bağımsız sızıntı okuması ve Fable incelemesi ayrı yapılır.
+- Sızıntı ön taraması (grep: kişisel ad, yerel yol, sağlık verisi, özel altyapı ve proje adları, özel IP): yalnız redd edilmesi test edilen genel örnek `192.168.1.5` ve depo sahibinin zaten yayında olan şablon komutu çıktı; ayrıca bağımsız sızıntı okuması ve Fable incelemesi ayrı yapılır.
 - Orkestratörce denenmedi: tarayıcısız simülasyon (yazarın logu), gerçek bir sitede pilot (sonraki iş).
 
 ## Kapsam dışı / bilinen eksikler
 - Görsel fark (piksel karşılaştırma) yok; sonraki sürüm.
 - Ham test logları `*.log` olduğu için `.gitignore` tarafından commit dışıdır; sayılar yukarıda alıntılanmıştır. Alıntılarda yerel yol/geçici dizin adı yoktur; ham loglarda vardır (commit'e girmez).
-- 127.0.0.1 dışı engeli CDP `Fetch` alanı üzerindendir: HTTP(S) istek ve yönlendirmeleri kapsar; WebSocket/WebRTC gibi Fetch'e düşmeyen kanallar kapsam dışıdır (SKILL.md "Sınır" bölümü bunu iddia etmez).
+- 127.0.0.1 dışı engeli CDP `Fetch` alanı üzerindendir ve yalnız ANA SAYFA hedefinin HTTP(S) istek ve yönlendirmelerini kapsar. Kapsam dışı: WebSocket, WebRTC, worker ve `window.open`/`target=_blank` ile açılan yeni hedefler Fetch'ten geçmez. Yeni hedeflerin loopback dışı trafiği `--proxy-server=127.0.0.1:1` (ölü proxy) ile durdurulur; garanti HTTP(S) içindir, WebSocket/WebRTC için verilmez (SKILL.md "Sınır" bölümü bunu söyler).
+- Sınama kareleri ekrandaki her şeyi alır ve rapor konsol/öğe metnini içerir; kişisel/sağlık verisi taşıyan arayüzlerde çalıştırılmaz (SKILL.md "Sınır"). Çıktı bekçisi (sonuc.json/RAPOR.md taraması) yalnız 11 hane, TR cep telefonu, e-posta ve özel desenleri yakalar; ad/adres gibi gerisi ve PNG kareleri kapsam dışıdır (rapor yazılmasa bile bekçi tetiklenmeden önce alınan kareler `--out` altında kalabilir).
 - Örtülü öğe denetimi yalnız tıklanacak noktanın `elementFromPoint` ile sınanmasıdır; `click` için kapsam budur, ayrı bir fixture testi yoktur.
 - `ux-sinama` ajan tanım dosyası / `roller/` bilinçli olarak eklenmedi (görev kapsamı dışı).
 
@@ -93,3 +94,57 @@ Orkestratör, 2026-10-30, cwd = worktree, yazar raporuna dayanmadan kendi koşus
 3. `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs`
 4. `UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` (Node ≥ 22; Edge/Chrome gerekir, yoksa `--browser`/`CAPTURE_BROWSER`)
 5. Elle: `node .claude/skills/ux-sinama/scripts/senaryo-kos.mjs --senaryo <senaryo.json> --sun .claude/skills/ux-sinama/fixtures/kusurlu --out <dizin> --matris 390x844,1280x800 --tema acik` (`senaryo.json`: `{"ad":"kusurlu-sinama","adimlar":[{"adim":"goto","url":"/"},{"adim":"screenshot","ad":"acilis"}]}`) → çıkış 1, `RAPOR.md` içinde yukarıdaki bulgu türleri.
+
+## Tur 2 (Fable Tur 1 bulgularının kapatılması)
+
+Tur: 2 · Yazar modeli: sonnet · Kapsam: `.claude/skills/ux-sinama/` (kanonik) ve `.agents/skills/ux-sinama/` (ayna, `kur.mjs --hedef hepsi --zorla` ile eşitlendi).
+
+### İddia (Tur 2)
+- [ ] T2-1. (ENGELLEYİCİ-1) SKILL.md "Sınır" bölümünde "Kişisel ya da sağlık verisi taşıyan arayüzlerde çalıştırılmaz: kareler ekrandaki her şeyi alır, rapor konsol ve öğe metnini içerir; bu ekranları insan gözle sına." cümlesi vardır.
+- [ ] T2-2. (ÖNEMLİ-1) Yasak desen bekçisi ÇIKTIYI da tarar: `sonuc.json` ve `RAPOR.md` yazılmadan önce varsayılan + `--yasak-desen` desenleriyle taranır; eşleşirse dosyalar YAZILMAZ, yalnız `dosya:satır desen=<ad>` stderr'e gider (değer yazılmaz), çıkış 2.
+- [ ] T2-3. (ÖNEMLİ-2) Tarayıcı `--block-new-web-contents` ve `--proxy-server=127.0.0.1:1` ile başlar; loopback proxy'den muaf kalır (sınama çalışır), loopback dışı trafik (yeni pencere dahil) proxy'ye düşer. Kapsam dışı notları SKILL.md "Sınır" ve bu PROOF'un "Kapsam dışı" bölümündedir.
+- [ ] T2-4. (ÖNEMLİ-3) SKILL.md 1202 → 544 sözcük; adım tablosu, seçenekler, şiddet ölçütü ve kararlılık notu `--help` çıktısına taşındı; `--help` bunları gerçekten verir (test).
+- [ ] T2-5. (KÜÇÜK a-f) stderr'de yalnız profil dizin adı; ayraçsız 10 haneli TR cep (`5321234567`) yakalanır, uzun sayılar yakalanmaz; selftest e-postası `@example.com`; SKILL.md bekçi iddiası "şu biçimleri kodda yakalar; ad/adres gibi gerisi sınayıcının sorumluluğu"; RAPOR-template/SKILL.md/`--help` aynı öneri biçimini (en çok bir cümle) ve aynı eşiği (≤480 px genişlikte <44 px) söyler; bu PROOF'un tarama listesi genel dille yazıldı.
+
+### Önce (kırmızı; testler koddan ÖNCE yazıldı) [log/tur2-kirmizi.log]
+```
+UX_SINAMA_TARAYICI_ZORUNLU=1 node --test ... --test-name-pattern=<yeni/değişen testler>
+ℹ tests 11 · pass 0 · fail 11     (modül dışa aktarımı, yasakTara 10 hane, --help içeriği, SKILL.md cümlesi,
+                                   SKILL.md ≤550, tarayiciBayraklari, süreç hijyeni (tam yol), çıktı bekçisi x2,
+                                   yeni hedef, proxy)
+yeni hedef testi (kontrol): açılan hedefler yüklendi: /popup, /favicon.ico, /sekme, /favicon.ico   (bayraksız tarayıcıda popup yüklendi)
+SKILL.md ölçümü: wc -w = 1202
+```
+
+### Sonra [log/tur2-ux.log, tur2-kur.log, tur2-capture.log]
+```
+node --test tests/kur.test.mjs                                         → ℹ tests 21 · pass 21 · fail 0 · skipped 0   (çıkış 0)
+node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs  → ℹ tests 17 · pass 17 · fail 0 · skipped 0   (çıkış 0)
+UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs
+                                                                       → ℹ tests 30 · pass 30 · fail 0 · skipped 0 · duration_ms 113065   (çıkış 0)
+node scripts/kur.mjs --hedef hepsi --kontrol                           → "Kontrol: kanonik kaynak ile kopyalar birebir aynı."
+wc -w .claude/skills/ux-sinama/SKILL.md                                → 544
+```
+Mevcut 21/17/24 test yeşil kaldı; 24 → 30: +6 yeni test (SKILL.md sınır cümlesi, SKILL.md hafiflik/hizalama, `tarayiciBayraklari`, çıktı bekçisi iki test, proxy). `yasakTara` ve `--help` testleri genişletildi (sayıları değişmedi).
+
+Not (kanıt): `--block-new-web-contents` bu tarayıcı sürümünde (başsız Edge) etkisiz çıktı: bayrakla da kullanıcı hareketiyle `window.open` hedefi yüklendi. Gerçek tutucu ölü proxy'dir; proxy testi (`--disable-popup-blocking` ile) yeni hedefin dış trafiğinin (192.0.2.1) vekile düştüğünü, loopback'in vekile uğramadığını gösterir (`bilgi: yeni hedef AÇILDI (dış trafiği proxy'ye düştü)`).
+
+### Test / Ölçüm (Tur 2)
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `node --test tests/kur.test.mjs` | 21 yeşil | 21/21 | 0 | PASS |
+| `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs` | 17 yeşil | 17/17 | 0 | PASS |
+| `UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` | 30 yeşil, atlama yok | 30/30, skipped 0 | 0 | PASS |
+| `node scripts/kur.mjs --hedef hepsi --kontrol` | ayna aynı | "birebir aynı" | 0 | PASS |
+
+(Bu koşudan sonra yalnız `senaryo-kos.mjs` başlık YORUMU ve ayna eşitlemesi değişti; `node --check` temiz, `--kontrol` yeniden temiz.)
+
+## Tur 2 — Orkestratör doğrulaması
+Orkestratör (2026-10-30), kendi koşusu, yazar raporuna dayanmadan:
+- [x] `node --test tests/kur.test.mjs` -> tests 21, pass 21, fail 0.
+- [x] `node --test .claude/skills/prove-it/scripts/capture-page.selftest.mjs` -> tests 17, pass 17, fail 0.
+- [x] `UX_SINAMA_TARAYICI_ZORUNLU=1 node --test .claude/skills/ux-sinama/scripts/senaryo-kos.selftest.mjs` -> tests 30, pass 30, fail 0, skipped 0 (~112 sn; yazarın başlık-yorumu düzeltmesinden SONRA koşuldu).
+- [x] `node scripts/kur.mjs --hedef hepsi --kontrol` -> "kanonik kaynak ile kopyalar birebir aynı"; `node --check` senaryo-kos.mjs temiz; `wc -w SKILL.md` = 544.
+- [x] Kapsam: `git diff --stat` 9 dosya (+616/-216), yeni izlenmeyen dosya yok; yalnız skill dosyaları, aynaları ve PROOF değişti.
+- [x] Sızıntı taraması (grep: kişisel ad, yerel yol, eczane/hasta, hub terimleri, özel altyapı, proje adları) skill dizini ve PROOF'ta eşleşme yok.
+- Yazar sapması, orkestratör kararı: `--block-new-web-contents` bu başsız Edge'de etkisiz, gerçek tutucu ölü proxy; bayrak "best-effort" olarak `--help`'te işaretli kalır (zararsız savunma derinliği). Çıktı bekçisi tetiklenince PNG kareler `--out` altında kalabilir (PROOF "Kapsam dışı"da yazılı).

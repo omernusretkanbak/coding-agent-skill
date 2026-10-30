@@ -23,7 +23,10 @@
 //    CDP Fetch alanında istekten ÖNCE engellenir ve ENGELLEYİCİ bulgu olur.
 //  - Yasak desen bekçisi: koşucu başlamadan senaryoyu (ve --sun dizinindeki metin dosyalarını)
 //    varsayılan + --yasak-desen desenleriyle tarar; eşleşme varsa HİÇ başlamaz (çıkış 2). Eşleşen
-//    metin DEĞİL, yalnız dosya:satır ve desen adı yazılır.
+//    metin DEĞİL, yalnız dosya:satır ve desen adı yazılır. Aynı tarama ÇIKTIYA da uygulanır (sonuc.json,
+//    RAPOR.md yazılmadan önce): eşleşirse dosyalar yazılmaz, çıkış 2.
+//  - Tarayıcı bayrakları: --proxy-server=127.0.0.1:1 (loopback muaf, diğer trafik ölü proxy'de ölür) ve
+//    --block-new-web-contents. Fetch bekçisi yalnız ana sayfa hedefindedir; WebSocket/WebRTC/worker kapsam dışı.
 //  - --sun: dizini 127.0.0.1'de rastgele portta SALT-OKUNUR sunar; `..`, kaçış kodlu `..`, sembolik
 //    bağlantı ile dizin dışına çıkış engelli; çıkışta kapanır.
 
@@ -63,9 +66,36 @@ Seçenekler:
   --browser <exe>         Tarayıcı yolu (yoksa CAPTURE_BROWSER, sonra Edge/Chrome aranır)
   --help                  Bu yardım
 
-Otomatik denetimler: konsol hatası/yakalanmamış istisna, ağ hatası (4xx/5xx), 127.0.0.1 dışı istek,
-yatay taşma, adsız etkileşimli öğe, alt'sız görsel, başlık atlaması, dokunmatik hedef < 44 px (390 genişlik),
-Tab ile görünür odak, yazı < 12 px.
+Adımlar (senaryo JSON'u: {"ad": "...", "adimlar": [...]}; ilk adım goto olmalı; örnek: senaryo-sablonu.json):
+  goto          url (göreli yol; mutlak ise 127.0.0.1 olmalı)
+  click         role+name ya da metin; hedef örtülüyse adım başarısız olur
+  fill          role+name ya da metin, deger (açıkça sahte değer kullanın)
+  press         tus: Enter, Tab, Escape, Space, Backspace, Arrow* (ArrowUp/Down/Left/Right)
+  waitFor       metin ya da role(+name); isteğe kaybolur, zamanAsimiMs (koşul yoklaması; sabit bekleme YOK)
+  assertText    metin (isteğe yok: true)
+  assertVisible role(+name) ya da metin
+  screenshot    ad; kare alır ve o noktada denetimleri de koşar
+Her adıma isteğe bağlı: beklenti (beklenti.json kimliği, ör. "B1") ve not. Hedefler yalnız erişilebilirlik
+role+name ya da görünür metin; CSS sınıfı, kimlik ve XPath hedefi REDDEDİLİR. Başarısız adımdan sonraki
+adımlar atlandi olur; son durum yine ölçülür.
+
+Kararlılık: koşucu prefers-reduced-motion: reduce, tr-TR yerel ayarı ve Europe/Istanbul saat dilimini uygular;
+her hücrede depolama, çerez ve önbellek temizlenir. Çıktıda (sonuc.json, RAPOR.md) yasak desen çıkarsa dosyalar
+YAZILMAZ (çıkış 2).
+
+Otomatik denetimler (her hücrede): konsol hatası/yakalanmamış istisna, ağ hatası (4xx/5xx), 127.0.0.1 dışı istek,
+yatay taşma, adsız etkileşimli öğe, alt'sız görsel, başlık atlaması, dokunmatik hedef < 44 px (yalnız ≤480 px
+genişlikte), Tab ile görünür odak, yazı < 12 px. Çalıştırılamayan denetim olcumHatalari alanına ve rapora yazılır.
+
+Şiddet (ölçüt):
+  ENGELLEYİCİ  görev tamamlanamaz ya da güvenlik sınırı aşılır: başarısız adım, 127.0.0.1 dışı istek
+  ÖNEMLİ       görev tamamlanır ama belirgin kusur: konsol hatası/istisna, 4xx/5xx, yatay taşma, adsız düğme,
+               alt'sız görsel, odak göstergesi yok, 24 px altı dokunmatik hedef, kanıtsız beklenti
+  KÜÇÜK        cila: başlık atlaması, 24-44 px dokunmatik hedef, 12 px altı yazı, favicon.ico 404
+
+Sınır: ana sayfanın HTTP(S) istek ve yönlendirmeleri 127.0.0.1 dışına gönderilmeden engellenir. Yeni pencere/sekme
+(window.open, target=_blank) bu bekçiden geçmez; onların loopback dışı trafiği ölü proxy'de ölür (best-effort:
+--block-new-web-contents de verilir). WebSocket, WebRTC ve worker kapsam dışıdır.
 
 Çıkış kodları: 0 temiz/yalnız KÜÇÜK, 1 ENGELLEYİCİ/ÖNEMLİ bulgu, 2 kullanım/güvenlik/tarayıcı yok, 3 koşucu hatası.
 `;
@@ -87,6 +117,7 @@ const VARSAYILAN_DESENLER = [
   { ad: 'on-bir-hane', re: /(?<!\d)\d{11}(?!\d)/ },
   { ad: 'tr-cep', re: /(?<!\d)(?:\+90|90|0)[\s-]*\(?5\d{2}\)?[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}(?!\d)/ },
   { ad: 'tr-cep', re: /(?<!\d)5\d{2}[\s.-]\d{3}[\s.-]\d{2}[\s.-]\d{2}(?!\d)/ },
+  { ad: 'tr-cep', re: /(?<!\d)5\d{9}(?!\d)/ }, // ayraçsız, ön eksiz 10 hane (5321234567); 10+ haneli uzun sayılar takılmaz
   {
     ad: 'eposta',
     re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.([A-Za-z]{2,})/,
@@ -447,7 +478,7 @@ function buildProfileDirFilter(profileDir) {
   return `$_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine.Contains('${escaped}')`;
 }
 
-function killByProfileDir(profileDir) {
+export function killByProfileDir(profileDir) {
   if (process.platform === 'win32') {
     const cmd =
       `Get-CimInstance Win32_Process | Where-Object { ${buildProfileDirFilter(profileDir)} } | ` +
@@ -474,12 +505,21 @@ function countByProfileDir(profileDir) {
   } catch { return -1; }
 }
 
+/**
+ * Tarayıcı komut satırı. Savunma derinliği (CDP Fetch bekçisi yalnız ana sayfa hedefini görür):
+ *  - --block-new-web-contents: window.open / target=_blank ile yeni hedef açılmaz;
+ *  - --proxy-server=127.0.0.1:<ölü port>: loopback proxy'den muaf kalır (sınama çalışır), diğer her trafik
+ *    ölü proxy'ye düşüp ölür. Son öğe başlangıç sayfasıdır (about:blank).
+ */
+export function tarayiciBayraklari(profileDir, { proxyPort = 1 } = {}) {
+  return [
+    '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check',
+    '--block-new-web-contents', `--proxy-server=127.0.0.1:${proxyPort}`, 'about:blank',
+  ];
+}
+
 function spawnBrowser(browserPath, profileDir) {
-  return spawn(
-    browserPath,
-    ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check', 'about:blank'],
-    { stdio: 'ignore' },
-  );
+  return spawn(browserPath, tarayiciBayraklari(profileDir), { stdio: 'ignore' });
 }
 
 function waitForExit(child, ms) {
@@ -1293,10 +1333,24 @@ function sonucuYaz(ctx, tamamlandi, hata) {
     bulgular, kararsizBulgular: ctx.kararsizBulgular, kararsiz: ctx.kararsiz, beklentiler,
     matris: ctx.hucreSonuclari,
   };
+  const jsonMetni = `${JSON.stringify(sonuc, null, 2)}\n`;
+  const raporMetni = raporUret(sonuc, readFileSync(ctx.raporSablon, 'utf8'));
+  // Çıktı bekçisi: konsol/öğe metni çalışma zamanında yasak desen üretebilir (girdi bekçisi bunu göremez).
+  // Eşleşirse dosyalar YAZILMAZ; eşleşen değer değil yalnız dosya:satır ve desen adı yazılır.
+  const yasaklar = yasakTara({
+    dosyalar: [{ ad: 'sonuc.json', metin: jsonMetni }, { ad: 'RAPOR.md', metin: raporMetni }],
+    ozel: ctx.ozel ?? [],
+  });
+  if (yasaklar.length) {
+    console.error('Hata: yasak desen bekçisi (ÇIKTI) — sınanan sayfa konsol/öğe metninde kişisel veri izlenimi veren içerik üretti; sonuc.json ve RAPOR.md YAZILMADI.');
+    for (const y of yasaklar) console.error(`  ${y.dosya}:${y.satir}  desen=${y.desen}`);
+    console.error('Eşleşen metin bilerek yazılmaz. Sayfayı sahte/anonim veriyle sınayın; kişisel/sağlık verisi taşıyan arayüzü insan gözle sınayın.');
+    return { kod: 2, say, yasak: true };
+  }
   mkdirSync(ctx.out, { recursive: true });
-  writeFileSync(path.join(ctx.out, 'sonuc.json'), `${JSON.stringify(sonuc, null, 2)}\n`);
-  writeFileSync(path.join(ctx.out, 'RAPOR.md'), raporUret(sonuc, readFileSync(ctx.raporSablon, 'utf8')));
-  return { kod, say };
+  writeFileSync(path.join(ctx.out, 'sonuc.json'), jsonMetni);
+  writeFileSync(path.join(ctx.out, 'RAPOR.md'), raporMetni);
+  return { kod, say, yasak: false };
 }
 
 async function oturumuKur(ctx) {
@@ -1352,10 +1406,11 @@ async function oturumuKur(ctx) {
   if (a.setup) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: a.setup });
 }
 
-async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon }) {
+async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon, ozel }) {
   installSignalHandlers();
   const profileDir = mkdtempSync(path.join(os.tmpdir(), 'ux-sinama-'));
-  console.error(`profil: ${profileDir}`);
+  // Tam yol yazılmaz (kullanıcı adı içerir); yalnız dizin adı.
+  console.error(`profil: ${path.basename(profileDir)}`);
   const state = { child: null, ws: null, profileDir, done: false, sunucu: null };
   activeState = state;
   const deadline = Date.now() + a.timeoutMs;
@@ -1366,7 +1421,7 @@ async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, rap
     return rem;
   };
   const ctx = {
-    a, sen, beklenti, matris, temalar, raporSablon, out: path.resolve(a.out), remainingMs, requireTime,
+    a, sen, beklenti, matris, temalar, raporSablon, ozel, out: path.resolve(a.out), remainingMs, requireTime,
     taban: null, cdp: null, cur: null, hucreSonuclari: [], sayilanBulgular: [], kararsizBulgular: [], kararsiz: [], kararliKayitlar: [],
   };
   let kod = 3;
@@ -1381,7 +1436,7 @@ async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, rap
     state.child = spawnBrowser(tarayici, profileDir);
     state.child.on('error', () => {});
     const port = await waitForDevToolsActivePort(profileDir, requireTime('DevToolsActivePort'));
-    console.error(`cdp: port=${port} profil=${profileDir}`);
+    console.error(`cdp: port=${port} profil=${path.basename(profileDir)}`);
     const target = await waitForPageTarget(port, requireTime('page hedefi'));
     const ws = new WebSocket(target.webSocketDebuggerUrl);
     state.ws = ws;
@@ -1422,10 +1477,12 @@ async function kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, rap
       }
     }
     await ctx.cdp.send('Browser.close').catch(() => {});
-    const { kod: k, say } = sonucuYaz(ctx, true, null);
+    const { kod: k, say, yasak } = sonucuYaz(ctx, true, null);
     kod = k;
-    console.log(`ÖZET: ENGELLEYİCİ=${say['ENGELLEYİCİ']} ÖNEMLİ=${say['ÖNEMLİ']} KÜÇÜK=${say['KÜÇÜK']} kararsız=${ctx.kararsiz.length} çıkış=${kod}`);
-    console.log(`Rapor: ${path.join(a.out, 'RAPOR.md')}`);
+    if (!yasak) {
+      console.log(`ÖZET: ENGELLEYİCİ=${say['ENGELLEYİCİ']} ÖNEMLİ=${say['ÖNEMLİ']} KÜÇÜK=${say['KÜÇÜK']} kararsız=${ctx.kararsiz.length} çıkış=${kod}`);
+      console.log(`Rapor: ${path.join(a.out, 'RAPOR.md')}`);
+    }
   } catch (err) {
     console.error(`Hata: ${err.message}`);
     try { sonucuYaz(ctx, false, err.message); } catch {}
@@ -1496,7 +1553,7 @@ async function main() {
     return 2;
   }
 
-  return kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon });
+  return kosucuCalistir({ a, sen, beklenti, matris, temalar, tarayici, raporSablon, ozel });
 }
 
 function anaModulMu() {
