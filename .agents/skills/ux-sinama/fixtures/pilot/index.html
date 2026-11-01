@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pilot sayfa</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 sans-serif; margin: 0; padding: 16px; background: #fff; color: #111; }
+  @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
+  .buyuk { text-transform: uppercase; }
+  button, a.dugme { display: inline-block; min-width: 44px; min-height: 44px; padding: 8px 12px; margin: 4px; font-size: 16px; line-height: 24px; }
+  :focus-visible { outline: 3px solid #06c; outline-offset: 2px; }
+  section { min-height: 1400px; }
+  [role=status] { padding: 8px; border: 1px solid currentColor; }
+</style>
+</head>
+<body>
+<header>
+  <img alt="Logo görseli" width="40" height="40" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23c33'/%3E%3C/svg%3E">
+  <h1>Pilot sayfa</h1>
+</header>
+<main>
+  <p>
+    <button class="buyuk" type="button">Katıl</button>
+    <button type="button">Kapat</button>
+    <button type="button">Giriş</button>
+    <button type="button">Kaydol</button>
+    <button type="button">Ara</button>
+    <button type="button">Sepet</button>
+    <button type="button">Yardım</button>
+    <button type="button">İletişim</button>
+  </p>
+  <p><a class="dugme" href="#alt">Alta git</a> <a class="dugme" href="#ust">Üste git</a></p>
+  <h2 class="buyuk" id="terim">Terim</h2>
+  <div role="status" id="rozet">Sakin mod</div>
+  <section id="ust"><h2>Üst bölüm</h2><p>Uzun içerik başlangıcı.</p></section>
+  <section id="alt"><h2>Alt bölüm</h2><p>Sayfanın aşağısındaki içerik.</p></section>
+</main>
+<script>
+  // Hareket serbestken (prefers-reduced-motion zorlanmamış) görünen geçici katman örneği.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.getElementById('rozet').textContent = 'Hoş geldiniz';
+  }
+</script>
+</body>
+</html>
