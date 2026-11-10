@@ -116,3 +116,66 @@ Her denemede yalnız kanonik kopya bozulduğundan (d) ve ayna bekçisi de düşt
 1. Bu turun commit'ini checkout et (SHA: REVIEW-<n>.md başlığı / PR head'i).
 2. Worktree kökünde `node --test tests/kur.test.mjs` çalıştır; 26 geçer, çıkış 0.
 3. `.claude/skills/ship-it/SKILL.md` içinde satır 38'e "Sonnet ile inceleme" yazıp aynı komutu çalıştır; (c), (d) ve ayna bekçisi düşer. Dosyayı geri al.
+
+## Tur 2
+
+| Görev | Tür | Aralık | Tur | Yazar modeli |
+|---|---|---|---|---|
+| REVIEW-1 bulgularını kapatmak (2 önemli, 2 küçük) | mantık | 2f503a7..bu turun commit'i | 2 | opus |
+
+### İddia
+- [x] `code-structure/SKILL.md` satır 22 ve `builder-prompt.md` satır 1 çağrıyı `Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})` olarak yazar; ajan dosyası yoksa `general-purpose` + aynı model.
+- [x] `ship-it/SKILL.md` satır 38 yalnız "yazardan daha zayıf model katmanıyla inceleme"yi yasaklar; "aynı ya da" kalmadı, parantez aynen duruyor.
+- [x] (c) testi `ship-it/SKILL.md`'de inceleyici yasağı satırını (satır 30) hariç tutup kalan metinde `/sonnet/i` arar; satır 30 dışında "sonnet" geçmez.
+- [x] `builder-prompt.md` satır 2, `{BUILDER_MODEL}` için ajansız ortamda araç ayarındaki model adının yazıldığını söyler.
+- [x] Altı dosyanın `.claude/skills` ve `.agents/skills` kopyaları bayt olarak aynı; tam takım 29/29, çıkış 0.
+
+### Önce
+Tur başı, 2f503a7 üzerinde test değişikliği yokken: `node --test tests/kur.test.mjs` 26 geçti, 0 kırmızı, çıkış 0.
+
+Yeni assert'ler eklendikten sonra, şablonlar değişmeden (tam çıktı: `tur2-kirmizi.txt`):
+
+```
+$ node --test tests/kur.test.mjs
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir)
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL})
+✖ builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır
+ℹ tests 29 · ℹ pass 26 · ℹ fail 3
+çıkış kodu: 1
+```
+
+Sıkılaştırılan (c) testi bu aşamada yeşildi, çünkü satır 30 dışında "sonnet" zaten yoktu; yakalama gücü aşağıdaki geri bozmayla gösterildi.
+
+### Sonra
+Tam çıktı: `tur2-yesil.txt`.
+
+```
+$ node --test tests/kur.test.mjs
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+çıkış kodu: 0
+```
+
+### Test
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `node --test tests/kur.test.mjs` (tur başı) | 26 geçer | 26 geçti | 0 | PASS |
+| aynı komut, yeni assert'ler var, şablonlar eski | 3 kırmızı | 3 kırmızı | 1 | PASS (beklenen kırmızı) |
+| aynı komut, tüm düzeltmeler ve ayna uygulandı | 29 geçer | 29 geçti | 0 | PASS |
+| geçici kopyada `ship-it/SKILL.md` satır 38'e küçük harfli "sonnet" eklendi, ayna da eşitlendi | yalnız (c) kırmızı | yalnız (c) kırmızı | 1 | PASS (beklenen kırmızı) |
+
+### Orkestratör doğrulaması
+- Test komutu tekrar çalıştırıldı: `node --test tests/kur.test.mjs` → 29 pass, 0 fail, çıkış 0; `node scripts/kur.mjs --hedef codex --kontrol` → kopyalar birebir aynı, çıkış 0
+- `git diff --stat` kapsam kontrolü: 7 izlenen şablon/test dosyası + kanıt klasörü; `AGENTS.md`, `CLAUDE.md`, `docs/KURULUM.md`, `.claude/agents` değişmedi
+- Aralık/Yeniden üretme: 2f503a7..bu turun commit'i; "çalışma ağacı" ya da taban SHA'yı HEAD sayan adım yok → doğruydu
+- Görseller: uygulanamaz
+- Süreç/port temizliği: test geçici dizinde çalışır, port açılmadı → uygulanamaz
+
+### Yeniden üretme
+1. Bu turun commit'ini checkout et (SHA: REVIEW-<n>.md başlığı / PR head'i).
+2. Worktree kökünde `node --test tests/kur.test.mjs` çalıştır; 29 geçer, çıkış 0.

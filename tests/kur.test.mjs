@@ -346,8 +346,28 @@ test('code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" i
   }
 });
 
-test('ship-it SKILL.md "Sonnet ile inceleme" yasağını model katmanıyla yazar', () => {
-  assert.ok(!sablonMetni('ship-it/SKILL.md').includes('Sonnet ile inceleme'));
+test('ship-it SKILL.md: "sonnet" yalnız inceleyici yasağı satırında geçer', () => {
+  const satirlar = sablonMetni('ship-it/SKILL.md').split('\n');
+  assert.ok(satirlar.some((s) => s.includes('Asla `sonnet`')), 'inceleyici yasağı satırı yerinde kalmalı');
+  assert.doesNotMatch(satirlar.filter((s) => !s.includes('Asla `sonnet`')).join('\n'), /sonnet/i);
+});
+
+test('ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir)', () => {
+  const metin = sablonMetni('ship-it/SKILL.md');
+  assert.ok(metin.includes('yazardan daha zayıf model katmanıyla inceleme'));
+  assert.doesNotMatch(metin, /aynı ya da/);
+});
+
+test('yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL})', () => {
+  for (const g of ['code-structure/SKILL.md', 'code-structure/builder-prompt.md']) {
+    assert.ok(sablonMetni(g).includes('Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})'), g);
+  }
+});
+
+test('builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır', () => {
+  const satir = sablonMetni('code-structure/builder-prompt.md').split('\n').find((s) => s.includes('Yer tutucular:'));
+  assert.ok(satir, 'yer tutucu satırı bulunamadı');
+  assert.match(satir, /\{BUILDER_MODEL\}.*ajansız ortamda araç ayarındaki model adı/);
 });
 
 test('yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı', () => {
