@@ -1,0 +1,99 @@
+✔ kanonik kaynakta en az beş skill var ve fabrika dahil (1.4475ms)
+✔ --hedef codex: .agents/skills altında her skill dizini ve SKILL.md (169.6791ms)
+✔ ux-sinama: koşucu, şablonlar ve fixture'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME) (242.4643ms)
+✔ --hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası (164.6412ms)
+✔ --hedef claude (proje kapsamı): kanonik kaynak, hiçbir şey değişmez (117.8647ms)
+✔ --hedef hepsi: hem .agents/skills hem .claude (kullanıcı kapsamı) (310.3429ms)
+✔ --kuru hiçbir dosya yazmaz (135.0333ms)
+✔ bekçi: kos() ev verilmezse gerçek HOME/USERPROFILE çocuk sürece geçmez (yalnız --kuru) (128.3882ms)
+✔ --kontrol: kanonikte olmayan skill dizini yalnız uyarıdır, çıkış kodunu değiştirmez (363.6815ms)
+✔ --kontrol: ayna aynıysa 0; dosya bozulunca ya da fazlalık olunca 1 (882.1816ms)
+✔ farklı içerikli mevcut dosya --zorla olmadan ezilmez (253.7179ms)
+✔ --kapsam kullanici yalnız HOME/USERPROFILE altına yazar (151.7011ms)
+✔ geçersiz hedef kullanım hatasıdır (çıkış 2) (235.2692ms)
+✔ hedefte aynı adlı DİZİN varsa yığın dökümü değil ÇATIŞMA (dizin) ve çıkış 1; hiçbir şey yazılmaz (234.7675ms)
+✔ ön tarama: çakışma varsa (--zorla yoksa) HİÇ dosya yazılmaz, liste basılır, çıkış 1 (140.237ms)
+✔ sembolik bağlantı: kaynaktaki bağlantı atlanır ve uyarılır; hedefteki bağlantı içinden yazılmaz (298.9228ms)
+✔ --kapsam kullanici: HOME ve USERPROFILE tanımsızsa çıkış 2 (128.3558ms)
+✔ her skill: name (klasör adıyla aynı, küçük harf-rakam-tire) ve description dolu (1.7521ms)
+✔ ajan sarmalayıcıları var olan roller/*.md dosyasına işaret ediyor (1.3944ms)
+✔ AGENTS.md 24000 bayttan küçük (Antigravity tek dosya sınırı) (0.3129ms)
+✔ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (130.7129ms)
+✔ builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok (0.6675ms)
+✔ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.5558ms)
+✔ code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez (0.6455ms)
+✔ ship-it SKILL.md: "sonnet" yalnız inceleyici yasağı satırında geçer (0.4179ms)
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir) (8.8084ms)
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL}) (0.3724ms)
+✖ builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır (0.6278ms)
+✔ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (2.219ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 26
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4516.5033
+
+✖ failing tests:
+
+test at tests\kur.test.mjs:355:1
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir) (8.8084ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(metin.includes('yazardan daha zayıf model katmanıyla inceleme'))
+  
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:357:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\kur.test.mjs:361:1
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL}) (0.3724ms)
+  AssertionError [ERR_ASSERTION]: code-structure/SKILL.md
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:363:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\kur.test.mjs:367:1
+✖ builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır (0.6278ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\{BUILDER_MODEL\}.*ajansız ortamda araç ayarındaki model adı/. Input:
+  
+  '<!-- Yer tutucular: {GOREV} {KAPSAM_DISI} {WORKTREE_ABS} {DAL} {DAL_SLUG} {BUILDER_MODEL} (orkestratörün çağrıda verdiği model) -->'
+  
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:370:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<!-- Yer tutucular: {GOREV} {KAPSAM_DISI} {WORKTREE_ABS} {DAL} {DAL_SLUG} {BUILDER_MODEL} (orkestratörün çağrıda verdiği model) -->',
+    expected: /\{BUILDER_MODEL\}.*ajansız ortamda araç ayarındaki model adı/,
+    operator: 'match',
+    diff: 'simple'
+  }

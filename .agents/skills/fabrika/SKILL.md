@@ -39,7 +39,7 @@ Rol metinleri araçtan bağımsız düz Markdown'dır ve TEK kaynaktır:
 - **Yazar** = hızlı/ucuz model katmanı (Claude'da örnek: Sonnet). **İnceleyici** = mevcut en güçlü
   katman (Claude'da örnek: Fable, erişilemezse Opus). Diğer araçlarda model adını araç ayarından seçin.
   Zayıf katman inceleyici olamaz; orkestratör kendini inceleyemez.
-- **Ajanlı ortam (Claude Code):** yazar `Agent(subagent_type: fabrika-yazar)`, inceleyici
+- **Ajanlı ortam (Claude Code):** yazar `Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})`, inceleyici
   `Agent(subagent_type: fabrika-inceleyici, model: fable)` (yedek `opus`). Bu iki ajan dosyası
   (`.claude/agents/`) yalnız rol dosyasına bakan ince sarmalayıcıdır. Ajan dosyaları yoksa aynı
   prompt'la `general-purpose` ajan + aynı model kullanılır. Fork yok; her çağrı taze bağlamdır.
@@ -86,7 +86,7 @@ Montaj hattı aynen: 1 → 2 → 3 → 4, en çok 3 tur, SKOR 5 → PR bağlant�
    `.claude/worktrees/` `.gitignore`'da değilse önce ekleme öner; kullanıcı onayı olmadan
    `.gitignore`'a dokunma.
 2. **İnşa et:** yazar rolü (yukarıdaki ajanlı/ajansız yollardan biri); prompt = doldurulmuş
-   `builder-prompt.md` (`{GOREV}`, `{KAPSAM_DISI}`, `{WORKTREE_ABS}`, `{DAL}`, `{DAL_SLUG}`) +
+   `builder-prompt.md` (`{GOREV}`, `{KAPSAM_DISI}`, `{WORKTREE_ABS}`, `{DAL}`, `{DAL_SLUG}`, `{BUILDER_MODEL}` = orkestratörün çağrıda verdiği yazar modeli) +
    skill satırı + devir notu yolu. Yazar bitince test komutunu **kendin** worktree'de tekrar koş;
    `git diff --stat` ile kapsamı kontrol et; commit'i sen at.
 3. **Kanıtla:** PROOF'u `prove-it` kurallarıyla doğrula (kutuları ve "Orkestratör doğrulaması"nı

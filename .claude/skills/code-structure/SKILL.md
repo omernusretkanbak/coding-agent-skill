@@ -6,7 +6,7 @@ description: >-
   implementer subagent for a task; before producing code without first
   reading how the project is organized. Keywords: build, implement,
   architecture, layering, page service repository, clean code, conventions,
-  learn codebase, implementer subagent, sonnet.
+  learn codebase, implementer subagent, builder model.
 ---
 
 # İNŞA ET — code-structure
@@ -15,11 +15,11 @@ description: >-
 
 ## İlke
 
-`AGENTS.md` mimariyi anlatmaz; ajan kod tabanını okuyarak öğrenir. Önce oku, sonra yaz. Kodu **Yazar (Sonnet)** yazar; orkestratör görevlendirir ve doğrular.
+`AGENTS.md` mimariyi anlatmaz; ajan kod tabanını okuyarak öğrenir. Önce oku, sonra yaz. Kodu **Yazar** yazar (model orkestratörün seçimidir); orkestratör görevlendirir ve doğrular.
 
 ## Orkestratör için
 
-Kodu kendin yazma. `Agent(subagent_type: fabrika-yazar)` (model `sonnet`; ajan dosyası yoksa `general-purpose` + `model: sonnet`; ajan tanımı olmayan araçlarda `fabrika` skill'indeki "ayrı oturum" tanımı) ile görevlendir; prompt = `builder-prompt.md`'nin doldurulmuş hali (fork değil, taze bağlam). Görevde geçen her olgusal öncülü ("şu dosyada zaten var", "şu desen kullanılıyor", "şu yardımcı mevcut") alt-ajana göndermeden ÖNCE kodda doğrula (`git grep`/okuma); doğrulanmamış öncül yazarı kapsam dışına iter (ör. "koyu tema zaten var" dendi, `git grep color-scheme -- src/` yalnız `color-scheme: light` döndürdü — koyu tema yok). Alt-ajan bitince: `git diff --stat` ile kapsamı kontrol et; test komutunu KENDİN tekrar çalıştır (alt-ajan raporu kanıt değildir); Mimari Notu'nu oku. Eksik varsa aynı alt-ajana `SendMessage` ile düzelttir; bağlam bozulduysa yeni alt-ajan aç.
+Kodu kendin yazma. `Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})` (ajan dosyası yoksa `general-purpose` + aynı model; ajan tanımı olmayan araçlarda `fabrika` skill'indeki "ayrı oturum" tanımı) ile görevlendir; prompt = `builder-prompt.md`'nin doldurulmuş hali (fork değil, taze bağlam). Görevde geçen her olgusal öncülü ("şu dosyada zaten var", "şu desen kullanılıyor", "şu yardımcı mevcut") alt-ajana göndermeden ÖNCE kodda doğrula (`git grep`/okuma); doğrulanmamış öncül yazarı kapsam dışına iter (ör. "koyu tema zaten var" dendi, `git grep color-scheme -- src/` yalnız `color-scheme: light` döndürdü — koyu tema yok). Alt-ajan bitince: `git diff --stat` ile kapsamı kontrol et; test komutunu KENDİN tekrar çalıştır (alt-ajan raporu kanıt değildir); Mimari Notu'nu oku. Eksik varsa aynı alt-ajana `SendMessage` ile düzelttir; bağlam bozulduysa yeni alt-ajan aç.
 
 ## Yazar için (reçete)
 

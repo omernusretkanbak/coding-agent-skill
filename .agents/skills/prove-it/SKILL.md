@@ -20,7 +20,7 @@ Kanıt, bu turda üretilip dosyaya yazılmış, kullanıcıya gösterilmiş çı
 
 ## Roller
 
-Yazar (Sonnet) `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: testi tekrar çalıştırır; kanıttaki TÜM görselleri adıyla açıp listeler, her görsel iddianın bölgesini `node .claude/skills/prove-it/scripts/capture-page.mjs --zoom-image <png> --region x,y,w,h --out <kırpıntı>` ile kırpıp DOĞRU/YANLIŞ işaretler (scratch'e; adı/bölgesi PROOF'a); `git diff --stat`/Aralığı kontrol eder, "Orkestratör doğrulaması"nı doldurur. Alt-ajan raporu kanıt sayılmaz. **Zorunlu:** süreçler kapalı mı — rapor/PROOF/yapılandırmadaki her port: Windows `Get-NetTCPConnection -LocalPort <p> -State Listen`, Unix `lsof -i :<p>`; açıksa PID'i durdur (toplu öldürme yasak), PROOF'a yaz.
+Yazar `PROOF.md` taslağını üretir. Orkestratör bağımsız doğrular: testi tekrar çalıştırır; kanıttaki TÜM görselleri adıyla açıp listeler, her görsel iddianın bölgesini `node .claude/skills/prove-it/scripts/capture-page.mjs --zoom-image <png> --region x,y,w,h --out <kırpıntı>` ile kırpıp DOĞRU/YANLIŞ işaretler (scratch'e; adı/bölgesi PROOF'a); `git diff --stat`/Aralığı kontrol eder, "Orkestratör doğrulaması"nı doldurur. Alt-ajan raporu kanıt sayılmaz. **Zorunlu:** süreçler kapalı mı — rapor/PROOF/yapılandırmadaki her port: Windows `Get-NetTCPConnection -LocalPort <p> -State Listen`, Unix `lsof -i :<p>`; açıksa PID'i durdur (toplu öldürme yasak), PROOF'a yaz.
 
 ## Kanıt Türü
 

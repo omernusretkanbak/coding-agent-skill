@@ -1,0 +1,54 @@
+✔ kanonik kaynakta en az beş skill var ve fabrika dahil (1.2938ms)
+✔ --hedef codex: .agents/skills altında her skill dizini ve SKILL.md (163.1108ms)
+✔ ux-sinama: koşucu, şablonlar ve fixture'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME) (249.2726ms)
+✔ --hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası (156.3241ms)
+✔ --hedef claude (proje kapsamı): kanonik kaynak, hiçbir şey değişmez (124.2946ms)
+✔ --hedef hepsi: hem .agents/skills hem .claude (kullanıcı kapsamı) (327.0984ms)
+✔ --kuru hiçbir dosya yazmaz (143.0535ms)
+✔ bekçi: kos() ev verilmezse gerçek HOME/USERPROFILE çocuk sürece geçmez (yalnız --kuru) (143.6771ms)
+✔ --kontrol: kanonikte olmayan skill dizini yalnız uyarıdır, çıkış kodunu değiştirmez (364.0275ms)
+✔ --kontrol: ayna aynıysa 0; dosya bozulunca ya da fazlalık olunca 1 (983.0165ms)
+✔ farklı içerikli mevcut dosya --zorla olmadan ezilmez (350.8158ms)
+✔ --kapsam kullanici yalnız HOME/USERPROFILE altına yazar (183.7891ms)
+✔ geçersiz hedef kullanım hatasıdır (çıkış 2) (262.3281ms)
+✔ hedefte aynı adlı DİZİN varsa yığın dökümü değil ÇATIŞMA (dizin) ve çıkış 1; hiçbir şey yazılmaz (255.3001ms)
+✔ ön tarama: çakışma varsa (--zorla yoksa) HİÇ dosya yazılmaz, liste basılır, çıkış 1 (174.8006ms)
+✔ sembolik bağlantı: kaynaktaki bağlantı atlanır ve uyarılır; hedefteki bağlantı içinden yazılmaz (323.6608ms)
+✔ --kapsam kullanici: HOME ve USERPROFILE tanımsızsa çıkış 2 (122.9368ms)
+✔ her skill: name (klasör adıyla aynı, küçük harf-rakam-tire) ve description dolu (1.3631ms)
+✔ ajan sarmalayıcıları var olan roller/*.md dosyasına işaret ediyor (0.9945ms)
+✔ AGENTS.md 24000 bayttan küçük (Antigravity tek dosya sınırı) (0.2234ms)
+✔ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (107.2119ms)
+✔ builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok (0.7717ms)
+✖ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.7845ms)
+✔ code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez (0.3816ms)
+✔ ship-it SKILL.md "Sonnet ile inceleme" yasağını model katmanıyla yazar (0.1716ms)
+✔ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (1.7724ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 25
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4850.8132
+
+✖ failing tests:
+
+test at tests\kur.test.mjs:337:1
+✖ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.7845ms)
+  AssertionError [ERR_ASSERTION]:    `builder-prompt.md` (`{GOREV}`, `{KAPSAM_DISI}`, `{WORKTREE_ABS}`, `{DAL}`, `{DAL_SLUG}`) +
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:340:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

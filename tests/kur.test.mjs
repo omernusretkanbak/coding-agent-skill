@@ -314,3 +314,68 @@ test('depodaki .agents/skills aynası kanonik .claude/skills ile aynı', () => {
   const r = spawnSync(process.execPath, [KUR, '--hedef', 'hepsi', '--kontrol', '--kok', REPO], { encoding: 'utf8' });
   assert.equal(r.status, 0, (r.stdout || '') + (r.stderr || ''));
 });
+
+// ---- Yazar şablonları model-nötr: yazar modelini orkestratör seçer ----
+
+const AYNA_SKILLS = path.join(REPO, '.agents', 'skills');
+const YAZAR_SABLONLARI = [
+  'code-structure/builder-prompt.md',
+  'code-structure/SKILL.md',
+  'prove-it/SKILL.md',
+  'prove-it/PROOF-template.md',
+  'ship-it/SKILL.md',
+  'fabrika/SKILL.md',
+];
+const sablonMetni = (goreli) => fs.readFileSync(path.join(SKILLS, ...goreli.split('/')), 'utf8');
+
+test('builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok', () => {
+  const metin = sablonMetni('code-structure/builder-prompt.md');
+  assert.ok(metin.includes('{BUILDER_MODEL}'));
+  assert.doesNotMatch(metin, /sonnet/i);
+});
+
+test('fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir', () => {
+  const satir = sablonMetni('fabrika/SKILL.md').split('\n').find((s) => s.includes('`builder-prompt.md` (`{GOREV}`'));
+  assert.ok(satir, 'builder-prompt yer tutucu listesi bulunamadı');
+  assert.ok(satir.includes('`{BUILDER_MODEL}`'), satir);
+});
+
+test('code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez', () => {
+  for (const g of ['code-structure/SKILL.md', 'prove-it/SKILL.md', 'prove-it/PROOF-template.md']) {
+    assert.doesNotMatch(sablonMetni(g), /sonnet/i, g);
+  }
+});
+
+test('ship-it SKILL.md: "sonnet" yalnız inceleyici yasağı satırında geçer', () => {
+  const satirlar = sablonMetni('ship-it/SKILL.md').split('\n');
+  assert.ok(satirlar.some((s) => s.includes('Asla `sonnet`')), 'inceleyici yasağı satırı yerinde kalmalı');
+  assert.doesNotMatch(satirlar.filter((s) => !s.includes('Asla `sonnet`')).join('\n'), /sonnet/i);
+});
+
+test('ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir)', () => {
+  const satir = sablonMetni('ship-it/SKILL.md').split('\n').find((s) => s.includes('yazardan daha zayıf model katmanıyla inceleme'));
+  assert.ok(satir, '"yazardan daha zayıf" satırı bulunamadı');
+  assert.doesNotMatch(satir, /aynı ya da/);
+  assert.ok(satir.includes('Fable erişilemezse Opus yedeği kabul, yazar Fable olsa da'), satir);
+});
+
+test('yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL})', () => {
+  for (const g of ['code-structure/SKILL.md', 'code-structure/builder-prompt.md', 'fabrika/SKILL.md']) {
+    assert.ok(sablonMetni(g).includes('Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})'), g);
+  }
+});
+
+test('builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır', () => {
+  const satir = sablonMetni('code-structure/builder-prompt.md').split('\n').find((s) => s.includes('Yer tutucular:'));
+  assert.ok(satir, 'yer tutucu satırı bulunamadı');
+  assert.match(satir, /\{BUILDER_MODEL\}.*ajansız ortamda araç ayarındaki model adı/);
+});
+
+test('yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı', () => {
+  for (const g of YAZAR_SABLONLARI) {
+    const parca = g.split('/');
+    const kanonik = fs.readFileSync(path.join(SKILLS, ...parca));
+    const ayna = fs.readFileSync(path.join(AYNA_SKILLS, ...parca));
+    assert.ok(kanonik.equals(ayna), g);
+  }
+});

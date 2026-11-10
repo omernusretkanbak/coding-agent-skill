@@ -1,0 +1,85 @@
+✔ kanonik kaynakta en az beş skill var ve fabrika dahil (1.3765ms)
+✔ --hedef codex: .agents/skills altında her skill dizini ve SKILL.md (155.9421ms)
+✔ ux-sinama: koşucu, şablonlar ve fixture'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME) (258.1745ms)
+✔ --hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası (169.2413ms)
+✔ --hedef claude (proje kapsamı): kanonik kaynak, hiçbir şey değişmez (131.2252ms)
+✔ --hedef hepsi: hem .agents/skills hem .claude (kullanıcı kapsamı) (329.4278ms)
+✔ --kuru hiçbir dosya yazmaz (145.44ms)
+✔ bekçi: kos() ev verilmezse gerçek HOME/USERPROFILE çocuk sürece geçmez (yalnız --kuru) (130.1585ms)
+✔ --kontrol: kanonikte olmayan skill dizini yalnız uyarıdır, çıkış kodunu değiştirmez (392.0424ms)
+✔ --kontrol: ayna aynıysa 0; dosya bozulunca ya da fazlalık olunca 1 (910.0036ms)
+✔ farklı içerikli mevcut dosya --zorla olmadan ezilmez (244.3245ms)
+✔ --kapsam kullanici yalnız HOME/USERPROFILE altına yazar (145.2782ms)
+✔ geçersiz hedef kullanım hatasıdır (çıkış 2) (242.8707ms)
+✔ hedefte aynı adlı DİZİN varsa yığın dökümü değil ÇATIŞMA (dizin) ve çıkış 1; hiçbir şey yazılmaz (222.1505ms)
+✔ ön tarama: çakışma varsa (--zorla yoksa) HİÇ dosya yazılmaz, liste basılır, çıkış 1 (132.9629ms)
+✔ sembolik bağlantı: kaynaktaki bağlantı atlanır ve uyarılır; hedefteki bağlantı içinden yazılmaz (290.6312ms)
+✔ --kapsam kullanici: HOME ve USERPROFILE tanımsızsa çıkış 2 (114.4084ms)
+✔ her skill: name (klasör adıyla aynı, küçük harf-rakam-tire) ve description dolu (1.5445ms)
+✔ ajan sarmalayıcıları var olan roller/*.md dosyasına işaret ediyor (0.9167ms)
+✔ AGENTS.md 24000 bayttan küçük (Antigravity tek dosya sınırı) (0.1615ms)
+✖ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (97.1744ms)
+✔ builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok (0.3121ms)
+✔ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.2888ms)
+✔ code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez (0.3844ms)
+✔ ship-it SKILL.md "Sonnet ile inceleme" yasağını model katmanıyla yazar (0.1866ms)
+✖ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (1.4297ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 24
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4470.7804
+
+✖ failing tests:
+
+test at tests\kur.test.mjs:313:1
+✖ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (97.1744ms)
+  AssertionError [ERR_ASSERTION]: = skill code-structure (claude): kanonik kaynak, atlandı
+  = skill fabrika (claude): kanonik kaynak, atlandı
+  = skill new-feature (claude): kanonik kaynak, atlandı
+  = skill prove-it (claude): kanonik kaynak, atlandı
+  = skill ship-it (claude): kanonik kaynak, atlandı
+  = skill ux-sinama (claude): kanonik kaynak, atlandı
+  = ajan fabrika-inceleyici.md (claude): kanonik kaynak, atlandı
+  = ajan fabrika-yazar.md (claude): kanonik kaynak, atlandı
+  ! FARKLI .agents/skills/fabrika/SKILL.md (farkli)
+  Kontrol: 1 sapma.
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:315:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kur.test.mjs:353:1
+✖ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (1.4297ms)
+  AssertionError [ERR_ASSERTION]: fabrika/SKILL.md
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:358:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

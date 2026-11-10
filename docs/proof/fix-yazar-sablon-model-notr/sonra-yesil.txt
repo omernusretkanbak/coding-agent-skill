@@ -1,0 +1,34 @@
+✔ kanonik kaynakta en az beş skill var ve fabrika dahil (1.2027ms)
+✔ --hedef codex: .agents/skills altında her skill dizini ve SKILL.md (162.3406ms)
+✔ ux-sinama: koşucu, şablonlar ve fixture'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME) (241.4354ms)
+✔ --hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası (159.1936ms)
+✔ --hedef claude (proje kapsamı): kanonik kaynak, hiçbir şey değişmez (131.9997ms)
+✔ --hedef hepsi: hem .agents/skills hem .claude (kullanıcı kapsamı) (310.4711ms)
+✔ --kuru hiçbir dosya yazmaz (141.2022ms)
+✔ bekçi: kos() ev verilmezse gerçek HOME/USERPROFILE çocuk sürece geçmez (yalnız --kuru) (131.512ms)
+✔ --kontrol: kanonikte olmayan skill dizini yalnız uyarıdır, çıkış kodunu değiştirmez (369.8545ms)
+✔ --kontrol: ayna aynıysa 0; dosya bozulunca ya da fazlalık olunca 1 (907.4059ms)
+✔ farklı içerikli mevcut dosya --zorla olmadan ezilmez (253.8685ms)
+✔ --kapsam kullanici yalnız HOME/USERPROFILE altına yazar (156.0905ms)
+✔ geçersiz hedef kullanım hatasıdır (çıkış 2) (237.7597ms)
+✔ hedefte aynı adlı DİZİN varsa yığın dökümü değil ÇATIŞMA (dizin) ve çıkış 1; hiçbir şey yazılmaz (220.7955ms)
+✔ ön tarama: çakışma varsa (--zorla yoksa) HİÇ dosya yazılmaz, liste basılır, çıkış 1 (131.7614ms)
+✔ sembolik bağlantı: kaynaktaki bağlantı atlanır ve uyarılır; hedefteki bağlantı içinden yazılmaz (290.8282ms)
+✔ --kapsam kullanici: HOME ve USERPROFILE tanımsızsa çıkış 2 (112.3948ms)
+✔ her skill: name (klasör adıyla aynı, küçük harf-rakam-tire) ve description dolu (1.7675ms)
+✔ ajan sarmalayıcıları var olan roller/*.md dosyasına işaret ediyor (1.2079ms)
+✔ AGENTS.md 24000 bayttan küçük (Antigravity tek dosya sınırı) (0.2546ms)
+✔ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (102.6804ms)
+✔ builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok (0.4291ms)
+✔ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.2582ms)
+✔ code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez (0.3638ms)
+✔ ship-it SKILL.md "Sonnet ile inceleme" yasağını model katmanıyla yazar (0.1715ms)
+✔ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (1.5579ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4428.5495
