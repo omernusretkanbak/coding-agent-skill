@@ -35,7 +35,7 @@ Merge ASLA ajan tarafından yapılmaz. Push ve PR açmak için kullanıcının A
 
 ## Asla
 
-`gh pr merge`; `main`'e yerel merge; `main`'e push; `finishing-a-development-branch` menüsü (tek çıkış PR'dır); kendi kendini inceleme; yazardan daha zayıf model katmanıyla inceleme (inceleyici mevcut en güçlü katmandır, Claude'da Fable; Fable erişilemezse Opus yedeği kabul).
+`gh pr merge`; `main`'e yerel merge; `main`'e push; `finishing-a-development-branch` menüsü (tek çıkış PR'dır); kendi kendini inceleme; yazardan daha zayıf model katmanıyla inceleme (inceleyici mevcut en güçlü katmandır, Claude'da Fable; Fable erişilemezse Opus yedeği kabul, yazar Fable olsa da).
 
 **REQUIRED SUB-SKILL:** superpowers:requesting-code-review — şablon kökeni; sözleşme eklentisi `reviewer-prompt.md`'dedir.
 

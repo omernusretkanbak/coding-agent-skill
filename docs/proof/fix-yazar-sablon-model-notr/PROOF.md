@@ -179,3 +179,75 @@ $ node --test tests/kur.test.mjs
 ### Yeniden üretme
 1. Bu turun commit'ini checkout et (SHA: REVIEW-<n>.md başlığı / PR head'i).
 2. Worktree kökünde `node --test tests/kur.test.mjs` çalıştır; 29 geçer, çıkış 0.
+
+## Tur 3
+
+| Görev | Tür | Aralık | Tur | Yazar modeli |
+|---|---|---|---|---|
+| REVIEW-2 bulgularını kapatmak (1 önemli, 2 küçük) | mantık | 3a5ec2f..bu turun commit'i | 3 | opus |
+
+### İddia
+- [x] `fabrika/SKILL.md` satır 42 yazarı `Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})` olarak çağırır; satırın kalanı aynı.
+- [x] "yazar çağrısı modeli açıkça verir" testinin dosya listesinde `fabrika/SKILL.md` var.
+- [x] `ship-it/SKILL.md` satır 38'in parantezi tek açık istisnayı yazar: "Fable erişilemezse Opus yedeği kabul, yazar Fable olsa da".
+- [x] ship-it testindeki `/aynı ya da/` denetimi tüm dosyada değil, yalnız "yazardan daha zayıf" cümlesini taşıyan satırda çalışır.
+- [x] `fabrika/SKILL.md` ve `ship-it/SKILL.md` için `.claude/skills` ve `.agents/skills` kopyaları bayt olarak aynı; tam takım 29/29, çıkış 0; `kur.mjs --hedef codex --kontrol` çıkış 0.
+
+### Önce
+Tur başı, 3a5ec2f üzerinde test değişikliği yokken: `node --test tests/kur.test.mjs` 29 geçti, 0 kırmızı, çıkış 0.
+
+Yeni assert'ler eklendikten sonra, skill dosyaları değişmeden (tam çıktı: `tur3-kirmizi.txt`). Ship-it testi "yazar Fable olsa da" metni bulunmadığı için, yazar çağrısı testi `fabrika/SKILL.md` dosyasında düştü:
+
+```
+$ node --test tests/kur.test.mjs
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir)
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL})
+ℹ tests 29 · ℹ pass 27 · ℹ fail 2
+çıkış kodu: 1
+```
+
+### Sonra
+Tam çıktı: `tur3-yesil.txt`.
+
+```
+$ node --test tests/kur.test.mjs
+ℹ tests 29
+ℹ pass 29
+ℹ fail 0
+çıkış kodu: 0
+
+$ node scripts/kur.mjs --hedef codex --kontrol
+Kontrol: kanonik kaynak ile kopyalar birebir aynı.
+çıkış kodu: 0
+```
+
+Toplam test sayısı değişmedi; bu turda yeni test değil, mevcut iki teste yeni denetim eklendi.
+
+### Test
+| Komut | Beklenen | Gerçek | Çıkış kodu | Sonuç |
+|---|---|---|---|---|
+| `node --test tests/kur.test.mjs` (tur başı) | 29 geçer | 29 geçti | 0 | PASS |
+| aynı komut, yeni assert'ler var, skill dosyaları eski | 2 kırmızı | 2 kırmızı | 1 | PASS (beklenen kırmızı) |
+| aynı komut, düzeltmeler ve ayna uygulandı | 29 geçer | 29 geçti | 0 | PASS |
+| `node scripts/kur.mjs --hedef codex --kontrol` | kopyalar aynı | kopyalar aynı | 0 | PASS |
+
+Geri bozma denemeleri deponun geçici bir kopyasında yapıldı; her denemede iki kopya birlikte bozulduğundan ayna testleri etkilenmedi.
+
+| Geri bozma | Beklenen | Gerçek | Çıkış kodu |
+|---|---|---|---|
+| `fabrika/SKILL.md` satır 42'den `model: {BUILDER_MODEL}` silindi | yalnız "yazar çağrısı modeli açıkça verir" kırmızı | aynı, 28/29 | 1 |
+| `ship-it/SKILL.md` satır 38'den ", yazar Fable olsa da" silindi | yalnız ship-it katman testi kırmızı | aynı, 28/29 | 1 |
+| `ship-it/SKILL.md` satır 38'e "aynı ya da" eklendi | yalnız ship-it katman testi kırmızı | aynı, 28/29 | 1 |
+| `ship-it/SKILL.md` satır 52'ye "aynı ya da" eklendi (daraltmanın kanıtı) | hepsi yeşil | 29/29 | 0 |
+
+### Orkestratör doğrulaması
+- Test komutu tekrar çalıştırıldı: `node --test tests/kur.test.mjs` → 29 pass, 0 fail, çıkış 0; `node scripts/kur.mjs --hedef codex --kontrol` → kopyalar birebir aynı, çıkış 0
+- `git diff --stat` kapsam kontrolü: 4 skill dosyası + `tests/kur.test.mjs` + kanıt klasörü; `AGENTS.md`, `CLAUDE.md`, `docs/KURULUM.md`, `.claude/agents` değişmedi
+- Aralık/Yeniden üretme: 3a5ec2f..bu turun commit'i; "çalışma ağacı" ya da taban SHA'yı HEAD sayan adım yok → doğruydu
+- Görseller: uygulanamaz
+- Süreç/port temizliği: test geçici dizinde çalışır, port açılmadı → uygulanamaz
+
+### Yeniden üretme
+1. Bu turun commit'ini checkout et (SHA: REVIEW-<n>.md başlığı / PR head'i).
+2. Worktree kökünde `node --test tests/kur.test.mjs` çalıştır; 29 geçer, çıkış 0.
+3. Aynı kökte `node scripts/kur.mjs --hedef codex --kontrol` çalıştır; çıkış 0.

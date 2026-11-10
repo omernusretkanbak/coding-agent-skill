@@ -39,7 +39,7 @@ Rol metinleri araçtan bağımsız düz Markdown'dır ve TEK kaynaktır:
 - **Yazar** = hızlı/ucuz model katmanı (Claude'da örnek: Sonnet). **İnceleyici** = mevcut en güçlü
   katman (Claude'da örnek: Fable, erişilemezse Opus). Diğer araçlarda model adını araç ayarından seçin.
   Zayıf katman inceleyici olamaz; orkestratör kendini inceleyemez.
-- **Ajanlı ortam (Claude Code):** yazar `Agent(subagent_type: fabrika-yazar)`, inceleyici
+- **Ajanlı ortam (Claude Code):** yazar `Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})`, inceleyici
   `Agent(subagent_type: fabrika-inceleyici, model: fable)` (yedek `opus`). Bu iki ajan dosyası
   (`.claude/agents/`) yalnız rol dosyasına bakan ince sarmalayıcıdır. Ajan dosyaları yoksa aynı
   prompt'la `general-purpose` ajan + aynı model kullanılır. Fork yok; her çağrı taze bağlamdır.

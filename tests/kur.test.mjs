@@ -353,13 +353,14 @@ test('ship-it SKILL.md: "sonnet" yalnız inceleyici yasağı satırında geçer'
 });
 
 test('ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir)', () => {
-  const metin = sablonMetni('ship-it/SKILL.md');
-  assert.ok(metin.includes('yazardan daha zayıf model katmanıyla inceleme'));
-  assert.doesNotMatch(metin, /aynı ya da/);
+  const satir = sablonMetni('ship-it/SKILL.md').split('\n').find((s) => s.includes('yazardan daha zayıf model katmanıyla inceleme'));
+  assert.ok(satir, '"yazardan daha zayıf" satırı bulunamadı');
+  assert.doesNotMatch(satir, /aynı ya da/);
+  assert.ok(satir.includes('Fable erişilemezse Opus yedeği kabul, yazar Fable olsa da'), satir);
 });
 
 test('yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL})', () => {
-  for (const g of ['code-structure/SKILL.md', 'code-structure/builder-prompt.md']) {
+  for (const g of ['code-structure/SKILL.md', 'code-structure/builder-prompt.md', 'fabrika/SKILL.md']) {
     assert.ok(sablonMetni(g).includes('Agent(subagent_type: fabrika-yazar, model: {BUILDER_MODEL})'), g);
   }
 });

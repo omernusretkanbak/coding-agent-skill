@@ -1,0 +1,75 @@
+✔ kanonik kaynakta en az beş skill var ve fabrika dahil (1.7521ms)
+✔ --hedef codex: .agents/skills altında her skill dizini ve SKILL.md (218.1737ms)
+✔ ux-sinama: koşucu, şablonlar ve fixture'lar kopyalanır (--kuru yazmaz; geçici kök, boş HOME) (404.3736ms)
+✔ --hedef claude (kullanıcı kapsamı): .claude/skills + .claude/agents, iki ajan dosyası (265.6313ms)
+✔ --hedef claude (proje kapsamı): kanonik kaynak, hiçbir şey değişmez (247.466ms)
+✔ --hedef hepsi: hem .agents/skills hem .claude (kullanıcı kapsamı) (495.6106ms)
+✔ --kuru hiçbir dosya yazmaz (226.0735ms)
+✔ bekçi: kos() ev verilmezse gerçek HOME/USERPROFILE çocuk sürece geçmez (yalnız --kuru) (218.1147ms)
+✔ --kontrol: kanonikte olmayan skill dizini yalnız uyarıdır, çıkış kodunu değiştirmez (533.6683ms)
+✔ --kontrol: ayna aynıysa 0; dosya bozulunca ya da fazlalık olunca 1 (1296.6952ms)
+✔ farklı içerikli mevcut dosya --zorla olmadan ezilmez (343.1062ms)
+✔ --kapsam kullanici yalnız HOME/USERPROFILE altına yazar (190.1786ms)
+✔ geçersiz hedef kullanım hatasıdır (çıkış 2) (309.2667ms)
+✔ hedefte aynı adlı DİZİN varsa yığın dökümü değil ÇATIŞMA (dizin) ve çıkış 1; hiçbir şey yazılmaz (284.8042ms)
+✔ ön tarama: çakışma varsa (--zorla yoksa) HİÇ dosya yazılmaz, liste basılır, çıkış 1 (177.0203ms)
+✔ sembolik bağlantı: kaynaktaki bağlantı atlanır ve uyarılır; hedefteki bağlantı içinden yazılmaz (470.0669ms)
+✔ --kapsam kullanici: HOME ve USERPROFILE tanımsızsa çıkış 2 (192.6021ms)
+✔ her skill: name (klasör adıyla aynı, küçük harf-rakam-tire) ve description dolu (2.2756ms)
+✔ ajan sarmalayıcıları var olan roller/*.md dosyasına işaret ediyor (2.0072ms)
+✔ AGENTS.md 24000 bayttan küçük (Antigravity tek dosya sınırı) (0.3983ms)
+✔ depodaki .agents/skills aynası kanonik .claude/skills ile aynı (154.0667ms)
+✔ builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok (0.4457ms)
+✔ fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir (0.3082ms)
+✔ code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez (0.4502ms)
+✔ ship-it SKILL.md: "sonnet" yalnız inceleyici yasağı satırında geçer (0.29ms)
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir) (0.827ms)
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL}) (0.6624ms)
+✔ builder-prompt: {BUILDER_MODEL} açıklaması ajansız ortamı (araç ayarındaki model adı) anlatır (0.4093ms)
+✔ yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı (1.844ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 27
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6526.9282
+
+✖ failing tests:
+
+test at tests\kur.test.mjs:355:1
+✖ ship-it SKILL.md: yalnız yazardan daha zayıf katmanla inceleme yasak (yazar Fable ise inceleyici Fable kalabilir) (0.827ms)
+  AssertionError [ERR_ASSERTION]: `gh pr merge`; `main`'e yerel merge; `main`'e push; `finishing-a-development-branch` menüsü (tek çıkış PR'dır); kendi kendini inceleme; yazardan daha zayıf model katmanıyla inceleme (inceleyici mevcut en güçlü katmandır, Claude'da Fable; Fable erişilemezse Opus yedeği kabul).
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:359:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\kur.test.mjs:362:1
+✖ yazar çağrısı modeli açıkça verir: Agent(..., model: {BUILDER_MODEL}) (0.6624ms)
+  AssertionError [ERR_ASSERTION]: fabrika/SKILL.md
+      at TestContext.<anonymous> (file:///D:/AKTIF/CODING%20AGENT%20SKILL/.claude/worktrees/fix-yazar-sablon-model-notr/tests/kur.test.mjs:364:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
