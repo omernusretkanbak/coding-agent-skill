@@ -9,7 +9,7 @@ başlığına girer (inceleyiciye verilen SHA'lar oradadır). -->
 
 | Görev | Tür | Aralık | Tur | Yazar modeli |
 |---|---|---|---|---|
-| {görev} | görsel / mantık / karma | {base-sha}..bu turun commit'i | 1 | sonnet |
+| {görev} | görsel / mantık / karma | {base-sha}..bu turun commit'i | 1 | {yazar-modeli} |
 
 ## İddia
 - [ ] {iddia 1}

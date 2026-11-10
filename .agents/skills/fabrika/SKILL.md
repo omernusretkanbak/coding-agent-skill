@@ -86,7 +86,7 @@ Montaj hattı aynen: 1 → 2 → 3 → 4, en çok 3 tur, SKOR 5 → PR bağlant�
    `.claude/worktrees/` `.gitignore`'da değilse önce ekleme öner; kullanıcı onayı olmadan
    `.gitignore`'a dokunma.
 2. **İnşa et:** yazar rolü (yukarıdaki ajanlı/ajansız yollardan biri); prompt = doldurulmuş
-   `builder-prompt.md` (`{GOREV}`, `{KAPSAM_DISI}`, `{WORKTREE_ABS}`, `{DAL}`, `{DAL_SLUG}`) +
+   `builder-prompt.md` (`{GOREV}`, `{KAPSAM_DISI}`, `{WORKTREE_ABS}`, `{DAL}`, `{DAL_SLUG}`, `{BUILDER_MODEL}` = orkestratörün çağrıda verdiği yazar modeli) +
    skill satırı + devir notu yolu. Yazar bitince test komutunu **kendin** worktree'de tekrar koş;
    `git diff --stat` ile kapsamı kontrol et; commit'i sen at.
 3. **Kanıtla:** PROOF'u `prove-it` kurallarıyla doğrula (kutuları ve "Orkestratör doğrulaması"nı

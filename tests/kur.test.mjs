@@ -314,3 +314,47 @@ test('depodaki .agents/skills aynası kanonik .claude/skills ile aynı', () => {
   const r = spawnSync(process.execPath, [KUR, '--hedef', 'hepsi', '--kontrol', '--kok', REPO], { encoding: 'utf8' });
   assert.equal(r.status, 0, (r.stdout || '') + (r.stderr || ''));
 });
+
+// ---- Yazar şablonları model-nötr: yazar modelini orkestratör seçer ----
+
+const AYNA_SKILLS = path.join(REPO, '.agents', 'skills');
+const YAZAR_SABLONLARI = [
+  'code-structure/builder-prompt.md',
+  'code-structure/SKILL.md',
+  'prove-it/SKILL.md',
+  'prove-it/PROOF-template.md',
+  'ship-it/SKILL.md',
+  'fabrika/SKILL.md',
+];
+const sablonMetni = (goreli) => fs.readFileSync(path.join(SKILLS, ...goreli.split('/')), 'utf8');
+
+test('builder-prompt: {BUILDER_MODEL} yer tutucusu var, sabit "sonnet" yok', () => {
+  const metin = sablonMetni('code-structure/builder-prompt.md');
+  assert.ok(metin.includes('{BUILDER_MODEL}'));
+  assert.doesNotMatch(metin, /sonnet/i);
+});
+
+test('fabrika SKILL.md: builder-prompt yer tutucu listesi {BUILDER_MODEL} içerir', () => {
+  const satir = sablonMetni('fabrika/SKILL.md').split('\n').find((s) => s.includes('`builder-prompt.md` (`{GOREV}`'));
+  assert.ok(satir, 'builder-prompt yer tutucu listesi bulunamadı');
+  assert.ok(satir.includes('`{BUILDER_MODEL}`'), satir);
+});
+
+test('code-structure SKILL.md, prove-it SKILL.md ve PROOF-template.md "sonnet" içermez', () => {
+  for (const g of ['code-structure/SKILL.md', 'prove-it/SKILL.md', 'prove-it/PROOF-template.md']) {
+    assert.doesNotMatch(sablonMetni(g), /sonnet/i, g);
+  }
+});
+
+test('ship-it SKILL.md "Sonnet ile inceleme" yasağını model katmanıyla yazar', () => {
+  assert.ok(!sablonMetni('ship-it/SKILL.md').includes('Sonnet ile inceleme'));
+});
+
+test('yazar şablonlarının .claude/skills ve .agents/skills kopyaları bayt olarak aynı', () => {
+  for (const g of YAZAR_SABLONLARI) {
+    const parca = g.split('/');
+    const kanonik = fs.readFileSync(path.join(SKILLS, ...parca));
+    const ayna = fs.readFileSync(path.join(AYNA_SKILLS, ...parca));
+    assert.ok(kanonik.equals(ayna), g);
+  }
+});
